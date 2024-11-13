@@ -21,6 +21,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+examples/
+future_work/
 
 # Virtual Environments
 .env

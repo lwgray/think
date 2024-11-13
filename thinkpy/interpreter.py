@@ -9,13 +9,29 @@ class ThinkPyInterpreter:
         self.builtins = {
             'sum': sum,
             'len': len,
-            'print': print,
+            'print': self.print_wrapper,  # Use wrapper for print
         }
+
+        self.state['True'] = True
+        self.state['False'] = False
+
+    def print_wrapper(self, *args):
+        """Wrapper for print function to properly handle variable references"""
+        # Convert all arguments to their string representation
+        str_args = []
+        for arg in args:
+            if isinstance(arg, bool):
+                str_args.append(str(arg))
+            elif isinstance(arg, (list, dict)):
+                str_args.append(str(arg))
+            else:
+                str_args.append(str(arg))
+        print(*str_args)
 
     def execute(self, ast):
         """Execute a parsed ThinkPy program"""
         if self.explain_mode:
-            print(f"Starting execution of program with objective: {ast['objective']}")
+            print(f"Starting execution of program with objective: {ast['objective']}\n\n")
         
         # First pass: register all tasks and subtasks
         self.register_tasks(ast['tasks'])
@@ -41,7 +57,7 @@ class ThinkPyInterpreter:
         
         task = self.tasks[task_name]
         if self.explain_mode:
-            print(f"Executing task: {task_name}")
+            print(f"Executing task: {task_name}\n")
         
         # Execute each step/subtask in the task
         for item in task['body']:
@@ -53,7 +69,7 @@ class ThinkPyInterpreter:
     def execute_step(self, step):
         """Execute a single step"""
         if self.explain_mode:
-            print(f"Executing step: {step['name']}")
+            print(f"Executing step: {step['name']}\n")
         
         for statement in step['statements']:
             self.execute_statement(statement)
@@ -65,7 +81,7 @@ class ThinkPyInterpreter:
         
         subtask = self.subtasks[subtask_name]
         if self.explain_mode:
-            print(f"Executing subtask: {subtask_name}")
+            print(f"Executing subtask: {subtask_name}\n")
         
         for statement in subtask['statements']:
             result = self.execute_statement(statement)
@@ -79,7 +95,12 @@ class ThinkPyInterpreter:
         if stmt_type == 'assignment':
             value = self.evaluate_expression(statement['value'])
             self.state[statement['variable']] = value
-            
+            if self.explain_mode:
+                print(f"Assigned {value} to {statement['variable']}\n")
+        
+        elif stmt_type == 'for_loop':
+            return self.execute_for_loop(statement)
+        
         elif stmt_type == 'function_call':
             return self.execute_function_call(statement)
             
@@ -89,29 +110,32 @@ class ThinkPyInterpreter:
             
         elif stmt_type == 'decide':
             return self.execute_decide(statement)
-            
-        elif stmt_type == 'repeat':
-            return self.execute_repeat(statement)
 
     def evaluate_expression(self, expr):
         """Evaluate an expression and return its value"""
-        if isinstance(expr, (int, str)):
+        # Handle direct values
+        if isinstance(expr, (int, float, bool)):
             return expr
             
+        # Handle string literals (already stripped of quotes by parser)
+        if isinstance(expr, str):
+            if expr in self.state:
+                return self.state[expr]
+            return expr
+            
+        # Handle complex expressions
         if isinstance(expr, dict):
-            if expr.get('type') == 'list':
+            expr_type = expr.get('type')
+            
+            if expr_type == 'list':
                 return [self.evaluate_expression(item) for item in expr['items']]
                 
-            elif expr.get('type') == 'operation':
+            elif expr_type == 'operation':
                 return self.evaluate_operation(expr)
                 
-            elif expr.get('type') == 'function_call':
+            elif expr_type == 'function_call':
                 return self.execute_function_call(expr)
                 
-        # Handle variable references
-        if isinstance(expr, str) and expr in self.state:
-            return self.state[expr]
-            
         return expr
 
     def evaluate_operation(self, operation):
@@ -120,16 +144,27 @@ class ThinkPyInterpreter:
         right = self.evaluate_expression(operation['right'])
         op = operation['operator']
         
-        if op == '+': return left + right
+        if op == '+': 
+            # Handle string concatenation
+            if isinstance(left, str) or isinstance(right, str):
+                return str(left) + str(right)
+            return left + right
         elif op == '-': return left - right
         elif op == '*': return left * right
         elif op == '/': return left / right
+        elif op == '==': return left == right
+        elif op == '!=': return left != right
+        elif op == '<': return left < right
+        elif op == '>': return left > right
+        elif op == '<=': return left <= right
+        elif op == '>=': return left >= right
         else:
             raise RuntimeError(f"Unknown operator: {op}")
 
     def execute_function_call(self, func_call):
         """Execute a function call"""
         func_name = func_call['name']
+        # Evaluate all arguments before passing them to the function
         args = [self.evaluate_expression(arg) for arg in func_call['arguments']]
         
         # Check for built-in functions
@@ -155,37 +190,55 @@ class ThinkPyInterpreter:
                     self.execute_statement(statement)
                 return
 
-    def execute_repeat(self, repeat_stmt):
-        """Execute a repeat statement"""
-        times = repeat_stmt['times']
-        for _ in range(times):
-            for statement in repeat_stmt['body']:
+    def execute_for_loop(self, loop_stmt):
+        """Execute a for loop iterating over a collection
+        Args:
+            loop_stmt: Dictionary containing:
+                - iterator: Name of each item in iteration
+                - iterable: Name of the collection to iterate over
+                - body: List of statements to execute in each iteration
+        Raises:
+            RuntimeError: If iterable doesn't exist or isn't iterable
+        """
+        iterator_name = loop_stmt['iterator']
+        iterable_name = loop_stmt['iterable']
+
+        if iterable_name not in self.state:
+            raise RuntimeError(f"Undefined variable: {iterable_name}")
+        
+        iterable = self.state[iterable_name]
+        if not hasattr(iterable, '__iter__'):
+            raise RuntimeError(f"{iterable_name} is not a collection we can iteratoe over")
+        
+        if self.explain_mode:
+            print(f"Starting iteration over {iterable_name}\n")
+
+        for item in iterable:
+            # Set the iterator variable for this iteration
+            self.state[iterator_name] = item
+
+            if self.explain_mode:
+                print(f"Processing {iterator_name}: {item}")
+
+            # Execute each statement in the loop body    
+            for statement in loop_stmt['body']:
                 self.execute_statement(statement)
 
-# Example usage with the parser
 if __name__ == "__main__":
     from parser import parse_thinkpy
     
     # Example ThinkPy program
     program = '''
-    objective "Calculate average temperature"
+    objective "Test string handling"
 
-    task "Data Collection" {
-        step "Get readings" {
-            temps = [72, 75, 68, 70, 73]
+    task "Greeting" {
+        step "Set message" {
+            message = "Hello, World!"
+            print(message)
         }
     }
 
-    task "Analysis" {
-        subtask "Calculate Average" {
-            total = sum(temps)
-            avg = total / 5
-            return avg
-        }
-    }
-
-    run "Data Collection"
-    run "Analysis"
+    run "Greeting"
     '''
     
     # Parse and execute the program

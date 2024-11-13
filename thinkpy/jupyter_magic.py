@@ -1,23 +1,29 @@
-from IPython.core.magic import register_cell_magic, Magics, magics_class
+from IPython.core.magic import (Magics, magics_class, line_cell_magic)
 from IPython.display import display, HTML
 import sys
 import io
 from typing import Optional
-from thinkpy_parser import parse_thinkpy
-from thinkpy_interpreter import ThinkPyInterpreter
+
+from .parser import parse_thinkpy
+from .interpreter import ThinkPyInterpreter
 
 @magics_class
 class ThinkPyMagics(Magics):
     def __init__(self, shell):
-        super(ThinkPyMagics, self).__init__(shell)
+        super().__init__(shell)
         self.explain_mode = False
-    
-    @register_cell_magic
-    def thinkpy(self, line: str, cell: str) -> None:
+
+    @line_cell_magic
+    def thinkpy(self, line='', cell=None):
         """
         Execute ThinkPy code in a Jupyter notebook cell.
         Usage: %%thinkpy [--explain]
         """
+        # If used as line magic and cell is empty
+        if cell is None:
+            cell = line
+            line = ''
+
         # Parse options
         self.explain_mode = '--explain' in line
         
