@@ -16,26 +16,8 @@ import ply.lex as lex
 import ply.yacc as yacc
 from typing import Any, Dict, List, Optional, Union
 import traceback
+from .errors import ThinkPyParserError
 
-class ThinkPyParserError(Exception):
-    """Custom exception for ThinkPy parsing errors."""
-    def __init__(self, message: str, line: int = None, position: int = None, token_value: str = None):
-        self.message = message
-        self.line = line
-        self.position = position
-        self.token_value = token_value
-        super().__init__(self.format_message())
-    
-    def format_message(self) -> str:
-        """Format the error message with line and position information."""
-        msg = "ThinkPy Parser Error: " + self.message
-        if self.line is not None:
-            msg += f" at line {self.line}"
-        if self.position is not None:
-            msg += f", position {self.position}"
-        if self.token_value is not None:
-            msg += f" (near '{self.token_value}')"
-        return msg
 
 class ThinkPyParser:
     """
@@ -50,7 +32,8 @@ class ThinkPyParser:
         'LPAREN', 'RPAREN', 'LBRACE', 'RBRACE',
         'LBRACKET', 'RBRACKET', 'IF', 'ELSE', 'THEN',
         'DECIDE', 'FOR', 'IN', 'COMMA', 'RETURN',
-        'GREATER', 'LESS', 'EQUALS_EQUALS', 'BOOL'
+        'GREATER', 'LESS', 'EQUALS_EQUALS', 'BOOL',
+        'ELIF'
     )
 
     # Reserved words mapping
@@ -68,7 +51,8 @@ class ThinkPyParser:
         'in': 'IN',
         'return': 'RETURN',
         'True': 'BOOL',
-        'False': 'BOOL'
+        'False': 'BOOL',
+        'elif': 'ELIF'
     }
 
     # Regular expression rules for simple tokens
@@ -119,11 +103,19 @@ class ThinkPyParser:
 
     def t_error(self, t: lex.LexToken):
         """Lexer error handler"""
+        print(f"DEBUG: Error at token: {t.value[0]}")
+        print(f"DEBUG: Position: {t.lexpos}")
+        print(f"DEBUG: Remaining input: {t.value[:20]}")
         raise ThinkPyParserError(
             f"Illegal character '{t.value[0]}'",
             line=self._find_line_number(t.lexpos),
             position=self._find_column_position(t.lexpos)
         )
+    
+    def t_debug(self, t: lex.LexToken):
+        """Debug token stream"""
+        print(f"DEBUG: Token: {t.type}, Value: {t.value}, pos={t.lexpos}")
+        return t
 
     def _find_line_number(self, position: int) -> int:
         """Find the line number for a given position in the source code."""
@@ -213,17 +205,30 @@ class ThinkPyParser:
         """
         statement_list : statement
                     | statement statement_list
+                    | empty
         """
         if len(p) == 2:
-            p[0] = [p[1]]
-        else:
-            p[0] = [p[1]] + p[2]
+            if p[1] is None:  # empty case
+                p[0] = []
+            else:  # single statement
+                p[0] = [p[1]]
+        else:  # statement followed by more statements
+            if isinstance(p[2], list):
+                p[0] = [p[1]] + p[2]
+            else:
+                p[0] = [p[1], p[2]]
 
     def p_return_statement(self, p):
         """
         return_statement : RETURN expression
         """
         p[0] = {'type': 'return', 'value': p[2]}
+
+    def p_empty(self, p):
+        """
+        empty :
+        """
+        p[0] = None
 
     def p_decide_statement(self, p):
         """
@@ -240,14 +245,15 @@ class ThinkPyParser:
         """
         conditions = [p[1]]  # Start with if condition
         
-        if len(p) >= 3:  # Has additional conditions
+        if len(p) == 3:  # Has one additional condition
             if isinstance(p[2], list):  # else if list
                 conditions.extend(p[2])
-                if len(p) >= 4:  # Has final else
-                    conditions.append(p[3])
-            else:  # Single else
+            else:  # else condition
                 conditions.append(p[2])
-                
+        elif len(p) == 4:  # Has else-if list and else
+            conditions.extend(p[2])
+            conditions.append(p[3])
+        
         p[0] = conditions
 
     def p_else_if_list(self, p):
@@ -262,21 +268,40 @@ class ThinkPyParser:
 
     def p_if_condition(self, p):
         """
-        if_condition : IF expression THEN statement_list
+        if_condition : IF expression THEN LBRACE statement_list RBRACE
         """
-        p[0] = {'type': 'if', 'condition': p[2], 'body': p[4]}
+        p[0] = {
+            'type': 'if', 
+            'condition': p[2], 
+            'body': p[5]
+        }
 
     def p_else_if_condition(self, p):
         """
-        else_if_condition : ELSE IF expression THEN statement_list
+        else_if_condition : ELIF expression THEN LBRACE statement_list RBRACE
         """
-        p[0] = {'type': 'elif', 'condition': p[3], 'body': p[5]}
+        p[0] = {
+            'type': 'elif',
+            'condition': p[3],
+            'body': p[5]
+        }
 
     def p_else_condition(self, p):
         """
-        else_condition : ELSE statement_list
+        else_condition : ELSE LBRACE statement_list RBRACE
+                    | ELSE LBRACE RBRACE
         """
-        p[0] = {'type': 'else', 'body': p[2]}
+        print(f"DEBUG: Parsing else condition with {len(p)} symbols")
+        if len(p) == 5:  # With statements
+            p[0] = {
+                'type': 'else',
+                'body': p[3] if isinstance(p[3], list) else [p[3]]
+            }
+        else:  # Empty block
+            p[0] = {
+                'type': 'else',
+                'body': []
+            }
 
     def p_for_statement(self, p):
         """
@@ -407,20 +432,38 @@ class ThinkPyParser:
         """
         p[0] = p[2]
 
-
     def p_error(self, p):
-        """Parser error handler"""
+        """Enhanced parser error handler"""
         if p:
+            print(f"DEBUG: Syntax error at token type: {p.type}")
+            print(f"DEBUG: Token value: {p.value}")
+            print(f"DEBUG: Position: {p.lexpos}")
             line_num = self._find_line_number(p.lexpos)
             col_num = self._find_column_position(p.lexpos)
+            source_context = self.get_source_context(p.lexpos)
+            
             raise ThinkPyParserError(
-                "Syntax error",
+                message=f"Syntax error at token {p.type}",
                 line=line_num,
-                position=col_num,
-                token_value=p.value
+                column=col_num,
+                token=p.value,
+                source_snippet=source_context
             )
-        else:
-            raise ThinkPyParserError("Syntax error at end of file")
+        
+    def get_source_context(self, position, window=2):
+        """Get source code context around an error position"""
+        lines = self.source_code.split('\n')
+        line_num = self._find_line_number(position)
+        
+        start = max(0, line_num - window - 1)
+        end = min(len(lines), line_num + window)
+        
+        context_lines = []
+        for i in range(start, end):
+            prefix = '-> ' if i == line_num - 1 else '   '
+            context_lines.append(f"{prefix}{i+1}: {lines[i]}")
+        
+        return '\n'.join(context_lines)
 
     def parse(self, code: str) -> Dict[str, Any]:
         """
@@ -461,39 +504,4 @@ def parse_thinkpy(code: str) -> Dict[str, Any]:
 
 # Example usage
 if __name__ == "__main__":
-    test_code = '''
-    objective "Test conditionals"
-
-    task "Process Order" {
-        step "Initialize" {
-            order_total = 50
-        }
-        
-        subtask "Verify Payment" {
-            decide {
-                if order_total > 100 then
-                    payment_valid = true
-                    requires_approval = true
-                else if order_total > 0 then
-                    payment_valid = true
-                    requires_approval = false
-                else
-                    payment_valid = false
-                    requires_approval = false
-            }
-            return [payment_valid, requires_approval]
-        }
-    }
-
-    run "Process Order"
-    '''
-    
-    try:
-        result = parse_thinkpy(test_code)
-        print("Successfully parsed code!")
-        print(result)
-    except ThinkPyParserError as e:
-        print("\nParsing Error:")
-        print(e)
-    except Exception as e:
-        print(f"\nUnexpected error: {str(e)}")
+    pass
