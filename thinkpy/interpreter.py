@@ -10,6 +10,7 @@ class ThinkPyInterpreter:
         self.iteration_count = 0
         
         # ANSI color codes for prettier output
+       # ANSI Color Code Constants
         self.colors = {
             # Original bright colors you liked
             'blue': '\033[94m',        # Tasks
@@ -48,7 +49,6 @@ class ThinkPyInterpreter:
             'BRANCH': self.colors['light_magenta']
         }
 
-        
         # Built-in functions
         self.builtins = {
             'sum': sum,
