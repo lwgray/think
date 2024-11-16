@@ -179,34 +179,13 @@ class ThinkPyMagics(Magics):
                 display(HTML(self.format_error_message("Failed to parse ThinkPy code")))
                 return
             
-            # Creatae a StringIO buffer to capture stdout
-            output_buffer = io.StringIO()
-            sys.stdout = output_buffer
-            
             interpreter = ThinkPyInterpreter(
                 explain_mode=self.explain_mode,
                 format_style=self.style,
                 max_iterations_shown=self.max_iterations
             )
             interpreter.execute(ast)
-
-            # Restore stdout
-            sys.stdout = sys.__stdout__
-            output = output_buffer.getvalue()
-
-            # If using color style, wrap output in proper HTML
-            if self.style == 'color':
-                html_output = f"""
-                <div style="font-family: monospace: white-space: pre;">
-                    {output}
-                </div>
-                """
-                display(HTML(html_output))
-            else:
-                print(output)
-            
         except Exception as e:
-            sys.stdout = sys.__stdout__
             if hasattr(e, 'format_message'):
                 error_html = self.format_error_message(e)
             else:

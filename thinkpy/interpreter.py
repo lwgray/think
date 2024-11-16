@@ -9,7 +9,6 @@ class ThinkPyInterpreter:
         self.max_iterations_shown = max_iterations_shown
         self.iteration_count = 0
         
-        # ANSI color codes for prettier output
        # ANSI Color Code Constants
         self.colors = {
             # Original bright colors you liked
