@@ -18,7 +18,6 @@ class ThinkPyInterpreter:
             'red': '\033[91m',         # Variables
             'green': '\033[92m',       # Output/Subtasks
             'white': '\033[37m',       # Info
-            
             # New colors for other statements
             'cyan': '\033[96m',        # Loops
             'light_cyan': '\033[36m',  # Iterations
@@ -26,14 +25,13 @@ class ThinkPyInterpreter:
             'magenta': '\033[95m',     # Decisions
             'light_magenta': '\033[35m', # Checks/Branches
             'light_blue': '\033[34m',  # Results
-            
             # Text styles
             'bold': '\033[1m',
             'underline': '\033[4m',
             'end': '\033[0m'
         }
         
-        # Statement type color mapping
+        # Add the statement color mapping
         self.statement_colors = {
             'PROGRAM': self.colors['blue'],
             'TASK': self.colors['blue'],
@@ -136,7 +134,7 @@ class ThinkPyInterpreter:
             print(f"\n{indent}{separator}\n{indent}OUTPUT: {output}\n{indent}{separator}\n")
         
         elif self.format_style == "color":
-            output_color = self.colors['green']  # Using green for output
+            output_color = self.statement_colors.get('OUTPUT', self.colors['green'])
             print(f"{indent}{output_color}{self.colors['bold']}OUTPUT{self.colors['end']}: {output}")
         
         elif self.format_style == "markdown":
