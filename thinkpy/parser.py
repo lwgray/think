@@ -16,7 +16,10 @@ import ply.lex as lex
 import ply.yacc as yacc
 from typing import Any, Dict, List, Optional, Union
 import traceback
-from .errors import ThinkPyParserError
+try:
+    from .errors import ThinkPyParserError
+except ImportError:
+    from errors import ThinkPyParserError
 
 
 class ThinkPyParser:
@@ -290,7 +293,7 @@ class ThinkPyParser:
         """
         p[0] = {
             'type': 'elif',
-            'condition': p[3],
+            'condition': p[2],
             'body': p[5]
         }
 
