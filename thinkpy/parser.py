@@ -33,7 +33,7 @@ class ThinkPyParser:
         'LBRACKET', 'RBRACKET', 'IF', 'ELSE', 'THEN',
         'DECIDE', 'FOR', 'IN', 'COMMA', 'RETURN',
         'GREATER', 'LESS', 'EQUALS_EQUALS', 'BOOL',
-        'ELIF'
+        'ELIF', 'FLOAT'
     )
 
     # Reserved words mapping
@@ -91,25 +91,33 @@ class ThinkPyParser:
         t.value = t.value[1:-1]  # Remove quotes
         return t
 
+    def t_FLOAT(self, t: lex.LexToken) -> lex.LexToken:
+        #r'\d*\.\d+'  # Matches numbers like 10.5, .5
+        r'-?\d*\.\d+([eE][-+]?\d+)?|-?\d+[eE][-+]?\d+'
+        t.value = float(t.value)
+        return t 
+    
     def t_NUMBER(self, t: lex.LexToken) -> lex.LexToken:
-        r'-?\d+'
+        r'\d+'
         t.value = int(t.value)
         return t
     
     def t_BOOL(self, t: lex.LexToken) -> lex.LexToken:
         r'True|False'
         t.value = True if t.value == 'True' else False
-        return t    
+        return t
 
     def t_error(self, t: lex.LexToken):
         """Lexer error handler"""
         print(f"DEBUG: Error at token: {t.value[0]}")
         print(f"DEBUG: Position: {t.lexpos}")
         print(f"DEBUG: Remaining input: {t.value[:20]}")
+        line_num = self._find_line_number(t.lexpos)
+        col_num = self._find_column_position(t.lexpos)
         raise ThinkPyParserError(
             f"Illegal character '{t.value[0]}'",
-            line=self._find_line_number(t.lexpos),
-            position=self._find_column_position(t.lexpos)
+            line=line_num,
+            column=col_num
         )
     
     def t_debug(self, t: lex.LexToken):
@@ -367,6 +375,7 @@ class ThinkPyParser:
             | NUMBER
             | STRING
             | BOOL
+            | FLOAT
             | list
             | function_call
             | LPAREN expression RPAREN

@@ -22,6 +22,9 @@ class ThinkPyInterpreter:
         for arg in args:
             if isinstance(arg, bool):
                 str_args.append(str(arg))
+            elif isinstance(arg, float):
+                # Format floats to avoid scientific notation for small numbers
+                str_args.append(f"{arg:.6f}".rstrip('0').rstrip('.'))
             elif isinstance(arg, (list, dict)):
                 str_args.append(str(arg))
             else:
@@ -158,9 +161,12 @@ class ThinkPyInterpreter:
             if isinstance(left, str) or isinstance(right, str):
                 return str(left) + str(right)
             return left + right
-        elif op == '-': return left - right
-        elif op == '*': return left * right
-        elif op == '/': return left / right
+        elif op == '-': return float(left - right)
+        elif op == '*': return float(left * right)
+        elif op == '/': 
+            if right == 0:
+                raise RuntimeError("Division by zero")
+            return float(left) / float(right)
         elif op == '==': return left == right
         elif op == '!=': return left != right
         elif op == '<': return left < right
