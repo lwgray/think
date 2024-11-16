@@ -1,9 +1,24 @@
 class ThinkPyInterpreter:
-    def __init__(self, explain_mode=False):
+    def __init__(self, explain_mode=False, format_style="default", max_iterations_shown=5):
         self.state = {}  # Variable storage
         self.explain_mode = explain_mode
+        self.format_style = format_style
+        self.indent_level = 0
         self.tasks = {}  # Store tasks for later execution
         self.subtasks = {}  # Store subtasks
+        self.max_iterations_shown = max_iterations_shown
+        self.iteration_count = 0
+        
+        # ANSI color codes for prettier output
+        self.colors = {
+            'blue': '\033[94m',
+            'green': '\033[92m',
+            'yellow': '\033[93m',
+            'red': '\033[91m',
+            'bold': '\033[1m',
+            'underline': '\033[4m',
+            'end': '\033[0m'
+        }
         
         # Built-in functions
         self.builtins = {
@@ -14,6 +29,60 @@ class ThinkPyInterpreter:
 
         self.state['True'] = True
         self.state['False'] = False
+
+    def format_message(self, category, message):
+        """Format explanatory messages based on the chosen style"""
+        indent = "  " * self.indent_level
+        
+        if self.format_style == "minimal":
+            return f"{indent}{category}: {message}"
+            
+        elif self.format_style == "detailed":
+            separator = "─" * 40
+            return f"\n{indent}{separator}\n{indent}{category}: {message}\n{indent}{separator}\n"
+            
+        elif self.format_style == "color":
+            category_colors = {
+                "TASK": self.colors['blue'],
+                "SUBTASK": self.colors['green'],
+                "STEP": self.colors['yellow'],
+                "VARIABLE": self.colors['red'],
+            }
+            color = category_colors.get(category.upper(), '')
+            return f"{indent}{color}{self.colors['bold']}{category}{self.colors['end']}: {message}"
+            
+        elif self.format_style == "markdown":
+            markdown_levels = {
+                "TASK": "##",
+                "SUBTASK": "###",
+                "STEP": "####",
+                "VARIABLE": "*",
+            }
+            level = markdown_levels.get(category.upper(), "-")
+            return f"{indent}{level} {message}"
+        
+        elif self.format_style == "educational":
+            category_icons = {
+                "DECISION": "🤔",
+                "CHECK": "⚖️",
+                "RESULT": "✨",
+                "BRANCH": "↪️",
+                "LOOP": "🔄",
+                "ITERATION": "👉",
+                "INFO": "ℹ️",
+                "COMPLETE": "✅",
+                "VARIABLE": "📝",
+            }
+            icon = category_icons.get(category.upper(), "•")
+            return f"{indent}{icon} {message}"
+            
+        else:  # default style
+            return f"{indent}[{category}] {message}"
+
+    def explain_print(self, category, message):
+        """Print explanatory message if in explain mode"""
+        if self.explain_mode:
+            print(self.format_message(category, message))
 
     def print_wrapper(self, *args):
         """Wrapper for print function to properly handle variable references"""
@@ -34,7 +103,12 @@ class ThinkPyInterpreter:
     def execute(self, ast):
         """Execute a parsed ThinkPy program"""
         if self.explain_mode:
-            print(f"Starting execution of program with objective: {ast['objective']}\n\n")
+            program_header = "PROGRAM EXECUTION"
+            if self.format_style == "detailed":
+                separator = "=" * 60
+                print(f"\n{separator}\n{program_header}: {ast['objective']}\n{separator}\n")
+            else:
+                self.explain_print("PROGRAM", ast['objective'])
         
         # First pass: register all tasks and subtasks
         self.register_tasks(ast['tasks'])
@@ -59,8 +133,8 @@ class ThinkPyInterpreter:
             raise RuntimeError(f"Task '{task_name}' not found")
         
         task = self.tasks[task_name]
-        if self.explain_mode:
-            print(f"Executing task: {task_name}\n")
+        self.explain_print("TASK", f"Executing {task_name}")
+        self.indent_level += 1
         
         # Execute each step/subtask in the task
         for item in task['body']:
@@ -68,14 +142,18 @@ class ThinkPyInterpreter:
                 self.execute_step(item)
             elif item.get('type') == 'subtask':
                 self.execute_subtask(item['name'])
+        
+        self.indent_level -= 1
 
     def execute_step(self, step):
         """Execute a single step"""
-        if self.explain_mode:
-            print(f"Executing step: {step['name']}\n")
+        self.explain_print("STEP", f"Executing {step['name']}")
+        self.indent_level += 1
         
         for statement in step['statements']:
             self.execute_statement(statement)
+        
+        self.indent_level -= 1
 
     def execute_subtask(self, subtask_name):
         """Execute a named subtask"""
@@ -83,32 +161,25 @@ class ThinkPyInterpreter:
             raise RuntimeError(f"Subtask '{subtask_name}' not found")
         
         subtask = self.subtasks[subtask_name]
-        if self.explain_mode:
-            print(f"Executing subtask: {subtask_name}\n")
+        self.explain_print("SUBTASK", f"Executing {subtask_name}")
+        self.indent_level += 1
         
         for statement in subtask['statements']:
             result = self.execute_statement(statement)
             if isinstance(result, dict) and result.get('type') == 'return':
+                self.indent_level -= 1
                 return result['value']
+        
+        self.indent_level -= 1
 
     def execute_statement(self, statement):
         """Execute a single statement"""
-        
-        # print(f"DEBUG: Statement received: {statement}")
-        # print(f"DEBUG: Statement type: {type(statement)}")
-        
-        # if isinstance(statement, str):
-        #     print(f"DEBUG: Got string instead of dict: {statement}")
-        #     # Handle string case or raise more informative error
-        #     raise RuntimeError(f"Expected dictionary for statement, got string: {statement}")
-            
         stmt_type = statement.get('type')
         
         if stmt_type == 'assignment':
             value = self.evaluate_expression(statement['value'])
             self.state[statement['variable']] = value
-            if self.explain_mode:
-                print(f"Assigned {value} to {statement['variable']}\n")
+            self.explain_print("VARIABLE", f"Assigned {value} to {statement['variable']}")
         
         elif stmt_type == 'for_loop':
             return self.execute_for_loop(statement)
@@ -193,28 +264,73 @@ class ThinkPyInterpreter:
         raise RuntimeError(f"Unknown function: {func_name}")
 
     def execute_decide(self, decide_stmt):
-        """Execute a decide (if/else) statement"""
+        """Execute a decide (if/else) statement with educational explanations"""
+        if self.explain_mode:
+            self.explain_print("DECISION", "Starting a conditional block")
+            self.indent_level += 1
+            
         for condition in decide_stmt['conditions']:
             if condition['type'] == 'if' or condition['type'] == 'elif':
-                if self.evaluate_expression(condition['condition']):
+                # Extract the actual condition (before 'then')
+                if isinstance(condition['condition'], dict) and condition['condition'].get('type') == 'operation':
+                    left = self.evaluate_expression(condition['condition']['left'])
+                    right = self.evaluate_expression(condition['condition']['right'])
+                    op = condition['condition']['operator']
+                    
+                    if self.explain_mode:
+                        self.explain_print("CHECK", f"Checking if {left} {op} {right}")
+                    
+                    condition_value = self.evaluate_operation({
+                        'type': 'operation',
+                        'left': left,
+                        'right': right,
+                        'operator': op
+                    })
+                    
+                    if self.explain_mode:
+                        self.explain_print("RESULT", f"Condition evaluates to: {condition_value}")
+                else:
+                    condition_value = self.evaluate_expression(condition['condition'])
+                    if self.explain_mode:
+                        self.explain_print("CHECK", f"Checking condition: {condition['condition']}")
+                        self.explain_print("RESULT", f"Condition evaluates to: {condition_value}")
+                
+                if condition_value:
+                    if self.explain_mode:
+                        self.explain_print("BRANCH", f"Taking {'if' if condition['type'] == 'if' else 'elif'} branch")
+                        self.indent_level += 1
+                    
                     for statement in condition['body']:
-                        self.execute_statement(statement)
+                        result = self.execute_statement(statement)
+                        if isinstance(result, dict) and result.get('type') == 'return':
+                            if self.explain_mode:
+                                self.indent_level -= 2
+                            return result
+                    
+                    if self.explain_mode:
+                        self.indent_level -= 1
                     return
             else:  # else clause
+                if self.explain_mode:
+                    self.explain_print("BRANCH", "No conditions were true, taking else branch")
+                    self.indent_level += 1
+                
                 for statement in condition['body']:
-                    self.execute_statement(statement)
+                    result = self.execute_statement(statement)
+                    if isinstance(result, dict) and result.get('type') == 'return':
+                        if self.explain_mode:
+                            self.indent_level -= 2
+                        return result
+                
+                if self.explain_mode:
+                    self.indent_level -= 1
                 return
+        
+        if self.explain_mode:
+            self.indent_level -= 1
 
     def execute_for_loop(self, loop_stmt):
-        """Execute a for loop iterating over a collection
-        Args:
-            loop_stmt: Dictionary containing:
-                - iterator: Name of each item in iteration
-                - iterable: Name of the collection to iterate over
-                - body: List of statements to execute in each iteration
-        Raises:
-            RuntimeError: If iterable doesn't exist or isn't iterable
-        """
+        """Execute a for loop with educational explanations"""
         iterator_name = loop_stmt['iterator']
         iterable_name = loop_stmt['iterable']
 
@@ -223,44 +339,74 @@ class ThinkPyInterpreter:
         
         iterable = self.state[iterable_name]
         if not hasattr(iterable, '__iter__'):
-            raise RuntimeError(f"{iterable_name} is not a collection we can iteratoe over")
+            raise RuntimeError(f"{iterable_name} is not a collection we can iterate over")
         
         if self.explain_mode:
-            print(f"Starting iteration over {iterable_name}\n")
+            self.explain_print("LOOP", f"Starting a loop that will go through each item in {iterable_name}")
+            self.explain_print("INFO", f"Total number of items to process: {len(iterable)}")
+            self.indent_level += 1
+            self.iteration_count = 0
 
-        for item in iterable:
-            # Set the iterator variable for this iteration
+        for i, item in enumerate(iterable):
             self.state[iterator_name] = item
-
+            
             if self.explain_mode:
-                print(f"Processing {iterator_name}: {item}")
-
-            # Execute each statement in the loop body    
+                # Only show details for the first few iterations
+                if i < self.max_iterations_shown:
+                    self.explain_print("ITERATION", f"Loop #{i + 1}: {iterator_name} = {item}")
+                elif i == self.max_iterations_shown:
+                    remaining = len(iterable) - self.max_iterations_shown
+                    self.explain_print("INFO", f"... {remaining} more iterations will be processed ...")
+                elif i == len(iterable) - 1:
+                    self.explain_print("INFO", f"Final iteration completed: {iterator_name} = {item}")
+            
             for statement in loop_stmt['body']:
-                self.execute_statement(statement)
+                result = self.execute_statement(statement)
+                if isinstance(result, dict) and result.get('type') == 'return':
+                    if self.explain_mode:
+                        self.indent_level -= 1
+                    return result
+        
+        if self.explain_mode:
+            self.explain_print("COMPLETE", f"Loop finished after processing {len(iterable)} items")
+            self.indent_level -= 1
+
 
 if __name__ == "__main__":
     from parser import parse_thinkpy
     
     # Example ThinkPy program
     program = '''
-    objective "Test string handling"
+    objective "Test different formatting styles"
 
     task "Greeting" {
         step "Set message" {
             message = "Hello, World!"
             print(message)
         }
+        
+        step "Loop example" {
+            items = ["a", "b", "c"]
+            for item in items {
+                print(item)
+            }
+        }
     }
 
     run "Greeting"
     '''
     
-    # Parse and execute the program
-    ast = parse_thinkpy(program)
-    interpreter = ThinkPyInterpreter(explain_mode=True)
-    interpreter.execute(ast)
+    # Try different formatting styles
+    styles = ["default", "minimal", "detailed", "color", "markdown", "educational"]
     
-    # Print final state
-    print("\nFinal program state:")
-    print(interpreter.state)
+    for style in styles:
+        print(f"\nTrying style: {style}")
+        print("-" * 40)
+        
+        ast = parse_thinkpy(program)
+        interpreter = ThinkPyInterpreter(explain_mode=True, format_style=style)
+        interpreter.execute(ast)
+        
+        # Print final state
+        print("\nFinal program state:")
+        print(interpreter.state)

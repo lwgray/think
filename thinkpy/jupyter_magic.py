@@ -3,6 +3,7 @@ from IPython.display import display, HTML
 import sys
 import io
 from typing import Optional
+import argparse
 
 from .parser import parse_thinkpy
 from .interpreter import ThinkPyInterpreter
@@ -12,6 +13,32 @@ class ThinkPyMagics(Magics):
     def __init__(self, shell):
         super().__init__(shell)
         self.explain_mode = False
+        self.style = "default"
+        self.max_iterations = 5
+
+    def parse_magic_args(self, line):
+        """Parse magic arguments using argparse"""
+        parser = argparse.ArgumentParser(description='ThinkPy magic arguments')
+        parser.add_argument('--explain', action='store_true',
+                          help='Enable explanation mode')
+        parser.add_argument('--style', type=str, default='default',
+                          choices=['default', 'minimal', 'detailed', 'color', 'markdown', 'educational'],
+                          help='Set the explanation style')
+        parser.add_argument('--max-iterations', type=int, default=5,
+                          help='Maximum number of iterations to show in detail')
+
+        # Parse args and handle errors gracefully
+        try:
+            # Split the line into args and handle quotes properly
+            if line:
+                args = line.split()
+            else:
+                args = []
+            parsed_args = parser.parse_args(args)
+            return parsed_args
+        except SystemExit:
+            # Catch the system exit that argparse triggers on error
+            return argparse.Namespace(explain=False, style='default', max_iterations=5)
 
     def format_error_message(self, error):
         """Format error message with proper styling"""
@@ -118,12 +145,32 @@ class ThinkPyMagics(Magics):
 
     @line_cell_magic
     def thinkpy(self, line='', cell=None):
-        """Execute ThinkPy code in a Jupyter notebook cell."""
+        """Execute ThinkPy code in a Jupyter notebook cell.
+        
+        Usage:
+            %%thinkpy [--explain] [--style STYLE] [--max-iterations N]
+            
+        Styles:
+            default    - Basic bracketed format
+            minimal    - Clean, simple format
+            detailed   - With separators
+            color      - With ANSI colors
+            markdown   - Using Markdown-style headers
+            educational - With emoji icons and detailed explanations
+            
+        Max iterations:
+            Controls how many loop iterations to show in detail
+            Default is 5
+        """
         if cell is None:
             cell = line
             line = ''
 
-        self.explain_mode = '--explain' in line
+        # Parse magic arguments
+        args = self.parse_magic_args(line)
+        self.explain_mode = args.explain
+        self.style = args.style
+        self.max_iterations = args.max_iterations
         
         try:
             # Parse and execute the code
@@ -132,7 +179,11 @@ class ThinkPyMagics(Magics):
                 display(HTML(self.format_error_message("Failed to parse ThinkPy code")))
                 return
             
-            interpreter = ThinkPyInterpreter(explain_mode=self.explain_mode)
+            interpreter = ThinkPyInterpreter(
+                explain_mode=self.explain_mode,
+                format_style=self.style,
+                max_iterations_shown=self.max_iterations
+            )
             interpreter.execute(ast)
             
         except Exception as e:
