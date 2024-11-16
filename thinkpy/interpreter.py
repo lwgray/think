@@ -85,7 +85,7 @@ class ThinkPyInterpreter:
             print(self.format_message(category, message))
 
     def print_wrapper(self, *args):
-        """Wrapper for print function to properly handle variable references"""
+        """Wrapper for print function to properly handle variable references and formatting"""
         # Convert all arguments to their string representation
         str_args = []
         for arg in args:
@@ -98,7 +98,30 @@ class ThinkPyInterpreter:
                 str_args.append(str(arg))
             else:
                 str_args.append(str(arg))
-        print(*str_args)
+                
+        # Format the output string
+        output = " ".join(str_args)
+        indent = "  " * self.indent_level
+        
+        if self.format_style == "minimal":
+            print(f"{indent}OUTPUT: {output}")
+        
+        elif self.format_style == "detailed":
+            separator = "─" * 40
+            print(f"\n{indent}{separator}\n{indent}OUTPUT: {output}\n{indent}{separator}\n")
+        
+        elif self.format_style == "color":
+            output_color = self.colors['green']  # Using green for output
+            print(f"{indent}{output_color}{self.colors['bold']}OUTPUT{self.colors['end']}: {output}")
+        
+        elif self.format_style == "markdown":
+            print(f"{indent}> {output}")
+        
+        elif self.format_style == "educational":
+            print(f"{indent}📤 Output: {output}")
+        
+        else:  # default style
+            print(f"{indent}[OUTPUT] {output}")
 
     def execute(self, ast):
         """Execute a parsed ThinkPy program"""
