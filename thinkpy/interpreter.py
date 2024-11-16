@@ -90,6 +90,15 @@ class ThinkPyInterpreter:
 
     def execute_statement(self, statement):
         """Execute a single statement"""
+        
+        # print(f"DEBUG: Statement received: {statement}")
+        # print(f"DEBUG: Statement type: {type(statement)}")
+        
+        # if isinstance(statement, str):
+        #     print(f"DEBUG: Got string instead of dict: {statement}")
+        #     # Handle string case or raise more informative error
+        #     raise RuntimeError(f"Expected dictionary for statement, got string: {statement}")
+            
         stmt_type = statement.get('type')
         
         if stmt_type == 'assignment':
