@@ -49,6 +49,7 @@ class ThinkPyInterpreter:
             'BRANCH': self.colors['light_magenta']
         }
 
+        
         # Built-in functions
         self.builtins = {
             'sum': sum,
