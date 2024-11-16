@@ -10,16 +10,47 @@ class ThinkPyInterpreter:
         self.iteration_count = 0
         
         # ANSI color codes for prettier output
+       # ANSI Color Code Constants
         self.colors = {
-            'blue': '\033[94m',
-            'green': '\033[92m',
-            'yellow': '\033[93m',
-            'red': '\033[91m',
+            # Original bright colors you liked
+            'blue': '\033[94m',        # Tasks
+            'yellow': '\033[93m',      # Steps
+            'red': '\033[91m',         # Variables
+            'green': '\033[92m',       # Output/Subtasks
+            'white': '\033[37m',       # Info
+            
+            # New colors for other statements
+            'cyan': '\033[96m',        # Loops
+            'light_cyan': '\033[36m',  # Iterations
+            'light_green': '\033[32m', # Complete
+            'magenta': '\033[95m',     # Decisions
+            'light_magenta': '\033[35m', # Checks/Branches
+            'light_blue': '\033[34m',  # Results
+            
+            # Text styles
             'bold': '\033[1m',
             'underline': '\033[4m',
             'end': '\033[0m'
         }
         
+        # Statement type color mapping
+        self.statement_colors = {
+            'PROGRAM': self.colors['blue'],
+            'TASK': self.colors['blue'],
+            'STEP': self.colors['yellow'],
+            'VARIABLE': self.colors['red'],
+            'OUTPUT': self.colors['green'],
+            'SUBTASK': self.colors['green'],
+            'INFO': self.colors['white'],
+            'LOOP': self.colors['cyan'],
+            'ITERATION': self.colors['light_cyan'],
+            'COMPLETE': self.colors['light_green'],
+            'DECISION': self.colors['magenta'],
+            'CHECK': self.colors['light_magenta'],
+            'RESULT': self.colors['light_blue'],
+            'BRANCH': self.colors['light_magenta']
+        }
+
         # Built-in functions
         self.builtins = {
             'sum': sum,
@@ -42,13 +73,7 @@ class ThinkPyInterpreter:
             return f"\n{indent}{separator}\n{indent}{category}: {message}\n{indent}{separator}\n"
             
         elif self.format_style == "color":
-            category_colors = {
-                "TASK": self.colors['blue'],
-                "SUBTASK": self.colors['green'],
-                "STEP": self.colors['yellow'],
-                "VARIABLE": self.colors['red'],
-            }
-            color = category_colors.get(category.upper(), '')
+            color = self.statement_colors.get(category.upper(), self.colors['white'])
             return f"{indent}{color}{self.colors['bold']}{category}{self.colors['end']}: {message}"
             
         elif self.format_style == "markdown":
