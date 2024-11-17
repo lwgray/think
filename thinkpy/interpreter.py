@@ -53,7 +53,9 @@ class ThinkPyInterpreter:
         self.builtins = {
             'sum': sum,
             'len': len,
-            'print': self.print_wrapper,  # Use wrapper for print
+            'print': self.print_wrapper,
+            'range': range,
+            'enumerate': enumerate,
         }
 
         self.state['True'] = True
@@ -230,6 +232,12 @@ class ThinkPyInterpreter:
         elif stmt_type == 'for_loop':
             return self.execute_for_loop(statement)
         
+        elif stmt_type == 'enumerate_loop':
+            return self.execute_enumerate_loop(statement)
+        
+        elif stmt_type == 'range_loop':
+            return self.execute_range_loop(statement)
+        
         elif stmt_type == 'function_call':
             return self.execute_function_call(statement)
             
@@ -313,6 +321,15 @@ class ThinkPyInterpreter:
         func_name = func_call['name']
         # Evaluate all arguments before passing them to the function
         args = [self.evaluate_expression(arg) for arg in func_call['arguments']]
+
+        # Special handling for range function
+        if func_name == 'range':
+            if not args:
+                raise RuntimeError("range() function requires at least one argument")
+            end = args[0]
+            if not isinstance(end, (int, float)):
+                raise RuntimeError(f"range() argument must be a number, got {type(end)}")
+            return range(int(end))
         
         # Check for built-in functions
         if func_name in self.builtins:
@@ -436,7 +453,90 @@ class ThinkPyInterpreter:
         if self.explain_mode:
             self.explain_print("COMPLETE", f"Loop finished after processing {len(iterable)} items")
             self.indent_level -= 1
-   
+    
+    def execute_enumerate_loop(self, loop_stmt):
+        """Execute an enumerate loop"""
+        value_var = loop_stmt['index']
+        index_var = loop_stmt['element']
+        iterable_name = loop_stmt['iterable']
+
+        if iterable_name not in self.state:
+            raise RuntimeError(f"Undefined variable: {iterable_name}")
+        
+        iterable = self.state[iterable_name]
+        if not hasattr(iterable, '__iter__'):
+            raise RuntimeError(f"{iterable_name} is not a collection we can enumerate")
+        
+        if self.explain_mode:
+            self.explain_print("LOOP", f"Starting an enumerate loop over {iterable_name}")
+            self.explain_print("INFO", f"Total number of items to process: {len(iterable)}")
+            self.indent_level += 1
+
+        for i, value in enumerate(iterable):
+            self.state[index_var] = i
+            self.state[value_var] = value
+
+            if self.explain_mode:
+                if i < self.max_iterations_shown:
+                    self.explain_print("ITERATION", f"Loop #{i + 1}: {index_var} = {i}, {value_var} = {value}")
+                elif i == self.max_iterations_shown:
+                    remaining = len(iterable) - self.max_iterations_shown
+                    self.explain_print("INFO", f"... {remaining} more iterations will be processed ...")
+                elif i == len(iterable) - 1:
+                    self.explain_print("INFO", f"Final iteration completed: {index_var} = {i}, {value_var} = {value}")
+            
+            for statement in loop_stmt['body']:
+                result = self.execute_statement(statement)
+                if isinstance(result, dict) and result.get('type') == 'return':
+                    if self.explain_mode:
+                        self.indent_level -= 1
+                    return result
+
+        if self.explain_mode:
+            self.explain_print("COMPLETE", f"Loop finished after processing {len(iterable)} items")
+            self.indent_level -= 1
+
+    def execute_range_loop(self, loop_stmt):
+        """Execute a range loop"""
+        iterator = loop_stmt['iterator']
+        range_expr = loop_stmt['range']
+
+        # If the range expression is a function call (like len(numbers))
+        if isinstance(range_expr, dict) and range_expr.get('type') == 'function_call':
+            result = self.execute_function_call(range_expr)
+            range_obj = range(result)
+        else:
+            # Evaluate any other type of expression
+            end = self.evaluate_expression(range_expr)
+            range_obj = range(end)
+        
+
+        if self.explain_mode:
+            self.explain_print("LOOP", f"Starting range loop from 0 to {len(range_obj)}")
+            self.explain_print("INFO", f"Total iterations: {len(range_obj)}")
+            self.indent_level += 1
+
+        for i in range_obj:
+            self.state[iterator] = i
+            
+            if self.explain_mode:
+                if i < self.max_iterations_shown:
+                    self.explain_print("ITERATION", f"Loop #{i + 1}: {iterator} = {i}")
+                elif i == self.max_iterations_shown:
+                    remaining = len(range_obj) - self.max_iterations_shown
+                    self.explain_print("INFO", f"... {remaining} more iterations will be processed ...")
+            
+            for statement in loop_stmt['body']:
+                result = self.execute_statement(statement)
+                if isinstance(result, dict) and result.get('type') == 'return':
+                    if self.explain_mode:
+                        self.indent_level -= 1
+                    return result
+
+        if self.explain_mode:
+            self.explain_print("COMPLETE", f"Loop finished after {len(range_obj)} iterations")
+            self.indent_level -= 1
+
     def evaluate_dict(self, entries):
         """Evaluate dictionary entries and construct dictionary"""
         result = {}
@@ -465,36 +565,28 @@ if __name__ == "__main__":
     
     # Example ThinkPy program
     program = '''
-    objective "Test different formatting styles"
+    objective "Test range loop"
 
-    task "Greeting" {
-        step "Set message" {
-            message = "Hello, World!"
-            print(message)
+    task "Loop Examples" {
+        step "Setup Data" {
+            numbers = [10, 20, 30, 40, 50]
         }
         
-        step "Loop example" {
-            items = ["a", "b", "c"]
-            for item in items {
-                print(item)
+        step "Range Loop" {
+            for i in range(len(numbers)) {
+                print("Position", i, "contains", numbers[i])
             }
         }
     }
-
-    run "Greeting"
     '''
     
     # Try different formatting styles
     styles = ["default", "minimal", "detailed", "color", "markdown", "educational"]
+        
+    ast = parse_thinkpy(program)
+    interpreter = ThinkPyInterpreter(explain_mode=True, format_style=styles[0])
+    interpreter.execute(ast)
     
-    for style in styles:
-        print(f"\nTrying style: {style}")
-        print("-" * 40)
-        
-        ast = parse_thinkpy(program)
-        interpreter = ThinkPyInterpreter(explain_mode=True, format_style=style)
-        interpreter.execute(ast)
-        
-        # Print final state
-        print("\nFinal program state:")
-        print(interpreter.state)
+    # Print final state
+    print("\nFinal program state:")
+    print(interpreter.state)

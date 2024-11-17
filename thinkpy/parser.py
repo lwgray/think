@@ -37,7 +37,8 @@ class ThinkPyParser:
         'DECIDE', 'FOR', 'IN', 'COMMA', 'RETURN',
         'GREATER', 'LESS', 'EQUALS_EQUALS', 'BOOL',
         'ELIF', 'FLOAT', 'GREATER_EQUALS', 'LESS_EQUALS',
-        'NOT_EQUALS', 'COLON'
+        'NOT_EQUALS', 'COLON', 'UNDERSCORE', 'RANGE',
+        'ENUMERATE'
     )
 
     # Reserved words mapping
@@ -56,7 +57,9 @@ class ThinkPyParser:
         'return': 'RETURN',
         'True': 'BOOL',
         'False': 'BOOL',
-        'elif': 'ELIF'
+        'elif': 'ELIF',
+        'range': 'RANGE',
+        'enumerate': 'ENUMERATE'
     }
 
     # Regular expression rules for simple tokens
@@ -79,6 +82,7 @@ class ThinkPyParser:
     t_LESS_EQUALS = r'<='
     t_NOT_EQUALS = r'!='
     t_COLON = r':'
+    t_UNDERSCORE = r'_'
     
     # Ignored characters (whitespace)
     t_ignore = ' \t\n'
@@ -320,14 +324,47 @@ class ThinkPyParser:
 
     def p_for_statement(self, p):
         """
-        for_statement : FOR IDENTIFIER IN IDENTIFIER LBRACE statement_list RBRACE
+        for_statement : FOR IDENTIFIER IN iterable LBRACE statement_list RBRACE
+                    | FOR IDENTIFIER COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN LBRACE statement_list RBRACE
+                    | FOR UNDERSCORE COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN LBRACE statement_list RBRACE
+                    | FOR IDENTIFIER IN RANGE LPAREN expression RPAREN LBRACE statement_list RBRACE
         """
-        p[0] = {
-            'type': 'for_loop',
-            'iterator': p[2],
-            'iterable': p[4],
-            'body': p[6]
-        }
+        if len(p) == 8:  # Simple for loop  
+            p[0] = {
+                'type': 'for_loop',
+                'iterator': p[2],
+                'iterable': p[4],
+                'body': p[6]
+            }
+        elif len(p) == 13:  # Enumerate with both variables
+            p[0] = {
+                'type': 'enumerate_loop',
+                'index': p[2],
+                'element': p[4],
+                'iterable': p[8],
+                'body': p[11]
+            }
+        else: # Range loop
+            p[0] = {
+                'type': 'range_loop',
+                'iterator': p[2],
+                'range': p[6],
+                'body': p[9]    
+            }
+
+    def p_iterable(self, p):
+        """
+        iterable : IDENTIFIER
+                | RANGE LPAREN expression RPAREN
+                | ENUMERATE LPAREN IDENTIFIER RPAREN
+        """
+        if len(p) == 2:  # Simple identifier
+            p[0] = p[1]
+        elif len(p) == 5:  # range() or enumerate()
+            if p[1] == 'range':
+                p[0] = {'type': 'range', 'end': p[3]}
+            else:  # enumerate
+                p[0] = {'type': 'enumerate', 'iterable': p[3]}
 
     def p_dict_literal(self, p):
         '''expression : LBRACE dict_content RBRACE
