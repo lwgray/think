@@ -36,7 +36,8 @@ class ThinkPyParser:
         'LBRACKET', 'RBRACKET', 'IF', 'ELSE', 'THEN',
         'DECIDE', 'FOR', 'IN', 'COMMA', 'RETURN',
         'GREATER', 'LESS', 'EQUALS_EQUALS', 'BOOL',
-        'ELIF', 'FLOAT'
+        'ELIF', 'FLOAT', 'GREATER_EQUALS', 'LESS_EQUALS',
+        'NOT_EQUALS'
     )
 
     # Reserved words mapping
@@ -74,6 +75,9 @@ class ThinkPyParser:
     t_GREATER = r'>'
     t_LESS = r'<'
     t_EQUALS_EQUALS = r'=='
+    t_GREATER_EQUALS = r'>='
+    t_LESS_EQUALS = r'<='
+    t_NOT_EQUALS = r'!='
     
     # Ignored characters (whitespace)
     t_ignore = ' \t\n'
@@ -95,7 +99,6 @@ class ThinkPyParser:
         return t
 
     def t_FLOAT(self, t: lex.LexToken) -> lex.LexToken:
-        #r'\d*\.\d+'  # Matches numbers like 10.5, .5
         r'-?\d*\.\d+([eE][-+]?\d+)?|-?\d+[eE][-+]?\d+'
         t.value = float(t.value)
         return t 
@@ -335,7 +338,7 @@ class ThinkPyParser:
     precedence = (
         ('left', 'PLUS', 'MINUS'),
         ('left', 'TIMES', 'DIVIDE'),
-        ('left', 'GREATER', 'LESS', 'EQUALS_EQUALS'),
+        ('left', 'GREATER', 'LESS', 'EQUALS_EQUALS', 'GREATER_EQUALS', 'LESS_EQUALS', 'NOT_EQUALS'),
     )
 
     def p_expression(self, p):
@@ -363,6 +366,9 @@ class ThinkPyParser:
         comparison_expr : arithmetic_expr GREATER arithmetic_expr
                     | arithmetic_expr LESS arithmetic_expr
                     | arithmetic_expr EQUALS_EQUALS arithmetic_expr
+                    | arithmetic_expr GREATER_EQUALS arithmetic_expr
+                    | arithmetic_expr LESS_EQUALS arithmetic_expr
+                    | arithmetic_expr NOT_EQUALS arithmetic_expr
         """
         p[0] = {'type': 'operation', 'left': p[1], 'operator': p[2], 'right': p[3]}
 
