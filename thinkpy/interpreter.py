@@ -306,7 +306,12 @@ class ThinkPyInterpreter:
         # Check for subtasks used as functions
         if func_name in self.subtasks:
             return self.execute_subtask(func_name)
-            
+        
+        # If not found, try converting the function name to possible subtask names
+        converted_name = func_name.replace('_', ' ').title()
+        if converted_name in self.subtasks:
+            return self.execute_subtask(converted_name)
+        
         raise RuntimeError(f"Unknown function: {func_name}")
 
     def execute_decide(self, decide_stmt):
