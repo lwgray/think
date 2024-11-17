@@ -37,7 +37,7 @@ class ThinkPyParser:
         'DECIDE', 'FOR', 'IN', 'COMMA', 'RETURN',
         'GREATER', 'LESS', 'EQUALS_EQUALS', 'BOOL',
         'ELIF', 'FLOAT', 'GREATER_EQUALS', 'LESS_EQUALS',
-        'NOT_EQUALS'
+        'NOT_EQUALS', 'COLON'
     )
 
     # Reserved words mapping
@@ -78,6 +78,7 @@ class ThinkPyParser:
     t_GREATER_EQUALS = r'>='
     t_LESS_EQUALS = r'<='
     t_NOT_EQUALS = r'!='
+    t_COLON = r':'
     
     # Ignored characters (whitespace)
     t_ignore = ' \t\n'
@@ -328,6 +329,34 @@ class ThinkPyParser:
             'body': p[6]
         }
 
+    def p_dict_literal(self, p):
+        '''expression : LBRACE dict_content RBRACE
+                    | LBRACE RBRACE'''
+        if len(p) == 3:  # empty dictionary
+            p[0] = {}
+        else:
+            p[0] = dict(p[2])
+
+    def p_dict_content(self, p):
+        '''dict_content : dict_entry
+                        | dict_content COMMA dict_entry'''
+        if len(p) == 2:
+            p[0] = [p[1]]
+        else:
+            p[0] = p[1] + [p[3]]
+
+    def p_dict_entry(self, p):
+        '''dict_entry : expression COLON expression'''
+        p[0] = (p[1], p[3])
+
+    def p_indexing(self, p):
+        '''expression : expression LBRACKET expression RBRACKET'''
+        p[0] = {
+            'type': 'index',
+            'container': p[1],
+            'key': p[3]
+        }
+
     def p_assignment(self, p):
         """
         assignment : IDENTIFIER EQUALS expression
@@ -345,6 +374,7 @@ class ThinkPyParser:
         """
         expression : arithmetic_expr
                 | comparison_expr
+                | dict_literal
         """
         p[0] = p[1]
 
@@ -388,12 +418,50 @@ class ThinkPyParser:
             | list
             | function_call
             | LPAREN expression RPAREN
+            | dict_literal
+            | index_expression
         """
         if len(p) == 2:
             p[0] = p[1]
         else:
             p[0] = p[2]  # For parenthesized expressions
 
+    def p_dict_literal(self, p):
+        """
+        dict_literal : LBRACE dict_entries RBRACE
+            | LBRACE RBRACE
+        """
+        if len(p) == 3:
+            p[0] = {'type': 'dict', 'entries': []}
+        else:
+            p[0] = {'type': 'dict', 'entries': p[2]}
+
+    def p_dict_entries(self, p):
+        """
+        dict_entries : dict_entry
+            | dict_entry COMMA dict_entries
+        """
+        if len(p) == 2:
+            p[0] = [p[1]]
+        else:
+            p[0] = [p[1]] + p[3]
+
+    def p_dict_entry(self, p):
+        """
+        dict_entry : expression COLON expression
+        """
+        p[0] = {'key': p[1], 'value': p[3]}
+
+    def p_index_expression(self, p):
+        """
+        index_expression : expression LBRACKET expression RBRACKET
+        """
+        p[0] = {
+            'type': 'index', 
+            'container': p[1], 
+            'key': p[3]
+            }    
+    
     def p_list(self, p):
         """
         list : LBRACKET list_items RBRACKET

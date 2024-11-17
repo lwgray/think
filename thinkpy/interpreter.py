@@ -258,7 +258,22 @@ class ThinkPyInterpreter:
             
             if expr_type == 'list':
                 return [self.evaluate_expression(item) for item in expr['items']]
-                
+            
+            elif expr_type == 'dict':
+                return self.evaluate_dict(expr.get('entries', []))
+            
+            elif expr_type == 'index':
+                container = self.evaluate_expression(expr['container'])
+                key = self.evaluate_expression(expr['key'])
+
+                if isinstance(container, (dict, list)):
+                    try:
+                        return container[key]
+                    except (KeyError, IndexError) as e:
+                        raise RuntimeError(f"Invalid index/key: {key} for container {container}")
+                else:
+                    raise RuntimeError(f"Cannot index into type: {type(container)}")                
+            
             elif expr_type == 'operation':
                 return self.evaluate_operation(expr)
                 
@@ -421,7 +436,29 @@ class ThinkPyInterpreter:
         if self.explain_mode:
             self.explain_print("COMPLETE", f"Loop finished after processing {len(iterable)} items")
             self.indent_level -= 1
+   
+    def evaluate_dict(self, entries):
+        """Evaluate dictionary entries and construct dictionary"""
+        result = {}
+        for entry in entries:
+            key = self.evaluate_expression(entry['key'])
+            value = self.evaluate_expression(entry['value'])
+            result[key] = value
+        return result
+    
+    def evaluate_index(self, expr):
+        """Evaluate indexing expression"""
+        container = self.evaluate_expression(expr['container'])
+        key = self.evaluate_expression(expr['key'])
 
+        if isinstance(container, (dict, list)):
+            try:
+                return container[key]
+            except (KeyError, IndexError) as e:
+                raise RuntimeError(f"Invalid index/key: {key}")
+        else:
+            raise RuntimeError(f"Cannot index into type: {type(container)}")
+    
 
 if __name__ == "__main__":
     from parser import parse_thinkpy
