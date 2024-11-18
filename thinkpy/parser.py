@@ -38,7 +38,7 @@ class ThinkPyParser:
         'GREATER', 'LESS', 'EQUALS_EQUALS', 'BOOL',
         'ELIF', 'FLOAT', 'GREATER_EQUALS', 'LESS_EQUALS',
         'NOT_EQUALS', 'COLON', 'UNDERSCORE', 'RANGE',
-        'ENUMERATE'
+        'ENUMERATE', 'NEWLINE'
     )
 
     # Reserved words mapping
@@ -117,6 +117,11 @@ class ThinkPyParser:
         r'True|False'
         t.value = True if t.value == 'True' else False
         return t
+    
+    def t_NEWLINE(self, t: lex.LexToken) -> lex.LexToken:
+        r'\n+'
+        t.lexer.lineno += len(t.value)
+        return t
 
     def t_error(self, t: lex.LexToken):
         """Lexer error handler"""
@@ -170,7 +175,7 @@ class ThinkPyParser:
 
     def p_task(self, p):
         """
-        task : TASK STRING LBRACE step_or_subtask_list RBRACE
+        task : TASK STRING COLON step_or_subtask_list
         """
         p[0] = {'name': p[2], 'body': p[4]}
 
@@ -188,13 +193,13 @@ class ThinkPyParser:
 
     def p_step(self, p):
         """
-        step : STEP STRING LBRACE statement_list RBRACE
+        step : STEP STRING COLON statement_list
         """
         p[0] = {'type': 'step', 'name': p[2], 'statements': p[4]}
 
     def p_subtask(self, p):
         """
-        subtask : SUBTASK STRING LBRACE statement_list RBRACE
+        subtask : SUBTASK STRING COLON statement_list
         """
         p[0] = {'type': 'subtask', 'name': p[2], 'statements': p[4]}
 
@@ -251,7 +256,7 @@ class ThinkPyParser:
 
     def p_decide_statement(self, p):
         """
-        decide_statement : DECIDE LBRACE condition_list RBRACE
+        decide_statement : DECIDE COLON condition_list 
         """
         p[0] = {'type': 'decide', 'conditions': p[3]}
 
@@ -287,7 +292,7 @@ class ThinkPyParser:
 
     def p_if_condition(self, p):
         """
-        if_condition : IF expression THEN LBRACE statement_list RBRACE
+        if_condition : IF expression THEN COLON statement_list 
         """
         p[0] = {
             'type': 'if', 
@@ -297,7 +302,7 @@ class ThinkPyParser:
 
     def p_else_if_condition(self, p):
         """
-        else_if_condition : ELIF expression THEN LBRACE statement_list RBRACE
+        else_if_condition : ELIF expression THEN COLON statement_list
         """
         p[0] = {
             'type': 'elif',
@@ -307,8 +312,7 @@ class ThinkPyParser:
 
     def p_else_condition(self, p):
         """
-        else_condition : ELSE LBRACE statement_list RBRACE
-                    | ELSE LBRACE RBRACE
+        else_condition : ELSE COLON statement_list
         """
         print(f"DEBUG: Parsing else condition with {len(p)} symbols")
         if len(p) == 5:  # With statements
@@ -324,19 +328,19 @@ class ThinkPyParser:
 
     def p_for_statement(self, p):
         """
-        for_statement : FOR IDENTIFIER IN iterable LBRACE statement_list RBRACE
-                    | FOR IDENTIFIER COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN LBRACE statement_list RBRACE
-                    | FOR UNDERSCORE COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN LBRACE statement_list RBRACE
-                    | FOR IDENTIFIER IN RANGE LPAREN expression RPAREN LBRACE statement_list RBRACE
+        for_statement : FOR IDENTIFIER IN iterable COLON statement_list
+                    | FOR IDENTIFIER COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN COLON statement_list
+                    | FOR UNDERSCORE COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN COLON statement_list
+                    | FOR IDENTIFIER IN RANGE LPAREN expression RPAREN COLON statement_list
         """
-        if len(p) == 8:  # Simple for loop  
+        if len(p) == 7:  # Simple for loop  
             p[0] = {
                 'type': 'for_loop',
                 'iterator': p[2],
                 'iterable': p[4],
                 'body': p[6]
             }
-        elif len(p) == 13:  # Enumerate with both variables
+        elif len(p) == 12:  # Enumerate with both variables
             p[0] = {
                 'type': 'enumerate_loop',
                 'index': p[2],

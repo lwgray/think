@@ -456,8 +456,8 @@ class ThinkPyInterpreter:
     
     def execute_enumerate_loop(self, loop_stmt):
         """Execute an enumerate loop"""
-        value_var = loop_stmt['index']
-        index_var = loop_stmt['element']
+        index_var = loop_stmt['index']
+        value_var = loop_stmt['element']
         iterable_name = loop_stmt['iterable']
 
         if iterable_name not in self.state:
