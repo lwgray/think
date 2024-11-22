@@ -276,8 +276,10 @@ class ThinkPyInterpreter:
 
                 if isinstance(container, (dict, list)):
                     try:
+                        if isinstance(container, list):
+                            key = int(key)
                         return container[key]
-                    except (KeyError, IndexError) as e:
+                    except (KeyError, IndexError, ValueError) as e:
                         raise RuntimeError(f"Invalid index/key: {key} for container {container}")
                 else:
                     raise RuntimeError(f"Cannot index into type: {type(container)}")                
@@ -300,6 +302,16 @@ class ThinkPyInterpreter:
             # Handle string concatenation
             if isinstance(left, str) or isinstance(right, str):
                 return str(left) + str(right)
+            elif isinstance(left, list):
+                if isinstance(right, list):
+                    return left + right
+                else:
+                    raise RuntimeError(f"Cannot concatenate list with non-list: {right}")
+            elif isinstance(right, list):
+                if isinstance(left, list):
+                    return left + right
+                else:
+                    raise RuntimeError(f"Cannot concatenate list with non-list: {left}")
             return left + right
         elif op == '-': return float(left - right)
         elif op == '*': return float(left * right)
@@ -510,7 +522,6 @@ class ThinkPyInterpreter:
             end = self.evaluate_expression(range_expr)
             range_obj = range(end)
         
-
         if self.explain_mode:
             self.explain_print("LOOP", f"Starting range loop from 0 to {len(range_obj)}")
             self.explain_print("INFO", f"Total iterations: {len(range_obj)}")
@@ -528,6 +539,7 @@ class ThinkPyInterpreter:
             
             for statement in loop_stmt['body']:
                 result = self.execute_statement(statement)
+                
                 if isinstance(result, dict) and result.get('type') == 'return':
                     if self.explain_mode:
                         self.indent_level -= 1
@@ -565,21 +577,19 @@ if __name__ == "__main__":
     
     # Example ThinkPy program
     program = '''
-    objective "Test range loop"
-
-    task "Loop Examples" {
-        step "Setup Data" {
-            numbers = [10, 20, 30, 40, 50]
-        }
-        
-        step "Range Loop" {
-            for i in range(len(numbers)) {
-                print("Position", i, "contains", numbers[i])
-            }
-        }
-    }
+        objective "Test"
+        task "Math":
+            step "Calculate":
+                int_result = 42 + -17
+                float_result = 3.14 * -2.5
+                sci_result = 1.5e3 / 1e2
+                mixed = -42 * 3.14159
+                print(int_result)
+                print(float_result)
+                print(sci_result)
+                print(mixed)
+    run "Math"
     '''
-    
     # Try different formatting styles
     styles = ["default", "minimal", "detailed", "color", "markdown", "educational"]
         

@@ -12,7 +12,8 @@ def capture_output():
 
 class TestBasicIntegration:
     def test_arithmetic_operations(self, interpreter, parser, capture_output):
-        code = '''objective "Test"
+        code = '''
+        objective "Test"
         task "Math":
             step "Calculate":
                 int_result = 42 + -17
@@ -27,15 +28,23 @@ class TestBasicIntegration:
         
         ast = parser.parse(code)
         interpreter.execute(ast)
-        
         output = capture_output.getvalue()
-        assert '25' in output
-        assert '-7.85' in output
-        assert '15.0' in output
-        assert '-131.94678' in output
+
+        print(f"\n>>> Debug: Captured output:\n{output}")  # More visible debug output
+
+        output_lines = output.strip().split('\n')
+        int_result = interpreter.state['int_result']
+        float_result = interpreter.state['float_result']
+        sci_result = interpreter.state['sci_result']
+        mixed_result = interpreter.state['mixed']
+        assert int_result == 25
+        assert pytest.approx(float_result) == -7.85
+        assert pytest.approx(float(sci_result)) == 15.0
+        assert pytest.approx(float(mixed_result)) == -131.94678
 
     def test_scientific_notation(self, interpreter, parser, capture_output):
-        code = '''task "Scientific":
+        code = '''objective "Test"
+            task "Scientific":
             step "Complex Math":
                 tiny = 1.5e-10
                 huge = 2.0e5
@@ -46,12 +55,13 @@ class TestBasicIntegration:
         ast = parser.parse(code)
         interpreter.execute(ast)
         
-        output = capture_output.getvalue()
-        assert any(x in output for x in ['3e-05', '0.00003'])
+        result = interpreter.state['result']
+        assert any(x == result for x in [3e-05, 0.00003])
 
 class TestControlFlow:
     def test_conditional_execution(self, interpreter, parser, capture_output):
-        code = '''task "Logic":
+        code = '''objective "Test conditional execution"
+        task "Logic":
             step "Test":
                 x = 5
                 decide:
@@ -68,11 +78,13 @@ class TestControlFlow:
         assert "positive" in capture_output.getvalue()
 
     def test_loop_execution(self, interpreter, parser, capture_output):
-        code = '''task "Loop":
+        code = '''objective "Test loop execution"
+        task "Loop":
             step "Iterate":
                 numbers = [1, 2, 3]
                 for num in numbers:
                     print(num)
+                end
         run "Loop"'''
         
         ast = parser.parse(code)
@@ -83,7 +95,8 @@ class TestControlFlow:
 
 class TestDataStructures:
     def test_nested_structures(self, interpreter, parser, capture_output):
-        code = '''task "Data":
+        code = '''objective "Test nested structures"
+        task "Data":
             step "Test":
                 users = [
                     {"name": "Alice", "scores": [90, 85]},
@@ -96,30 +109,32 @@ class TestDataStructures:
         ast = parser.parse(code)
         interpreter.execute(ast)
         
-        output = capture_output.getvalue()
-        assert "Alice" in output
-        assert "92" in output
+        assert interpreter.state['users'][0]['name'] == "Alice"
+        assert interpreter.state['users'][1]['scores'][1] == 92
 
     def test_list_operations(self, interpreter, parser, capture_output):
-        code = '''task "Lists":
+        code = '''objective "Test list operations"
+        task "Lists":
             step "Process":
                 items = []
                 for i in range(3):
                     items = items + [i]
+                end
                 print(items[0])
                 print(items[2])
         run "Lists"'''
         
         ast = parser.parse(code)
         interpreter.execute(ast)
-        
-        output = capture_output.getvalue()
-        assert "0" in output
-        assert "2" in output
+        print(interpreter.state)
+        #assert interpreter.state['items'][0] == 0
+        #assert interpreter.state['items'][2] == 2
+        assert False
 
 class TestFunctions:
     def test_subtask_execution(self, interpreter, parser, capture_output):
-        code = '''task "Functions":
+        code = '''objective "Test subtask execution"
+        task "Functions":
             subtask "calculate":
                 x = 5
                 return x * 2
@@ -135,21 +150,25 @@ class TestFunctions:
         
         ast = parser.parse(code)
         interpreter.execute(ast)
-        assert "13" in capture_output.getvalue()
+        assert 13 == interpreter.state['result']
 
     def test_data_processing(self, interpreter, parser, capture_output):
-        code = '''task "Process":
+        code = '''objective "Test data processing"
+        task "Process":
             step "Filter":
                 numbers = [1, 2, 3, 4, 5]
                 for n in numbers:
                     decide:
                         if n > 3 then:
                             print(n)
+                end
         run "Process"'''
         
         ast = parser.parse(code)
         interpreter.execute(ast)
         
         output = capture_output.getvalue()
-        assert "4" in output
-        assert "5" in output
+        four = output.strip().split('\n')[-2].split()[-1]
+        five = output.strip().split('\n')[-1].split()[-1]
+        assert 4 == int(four)
+        assert 5 == int(five)

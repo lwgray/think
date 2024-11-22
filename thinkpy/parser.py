@@ -38,7 +38,7 @@ class ThinkPyParser:
         'GREATER', 'LESS', 'EQUALS_EQUALS', 'BOOL',
         'ELIF', 'FLOAT', 'GREATER_EQUALS', 'LESS_EQUALS',
         'NOT_EQUALS', 'COLON', 'UNDERSCORE', 'RANGE',
-        'ENUMERATE', 'NEWLINE'
+        'ENUMERATE', 'NEWLINE', 'END'
     )
 
     # Reserved words mapping
@@ -59,7 +59,8 @@ class ThinkPyParser:
         'False': 'BOOL',
         'elif': 'ELIF',
         'range': 'RANGE',
-        'enumerate': 'ENUMERATE'
+        'enumerate': 'ENUMERATE',
+        'end': 'END'
     }
 
     # Regular expression rules for simple tokens
@@ -103,13 +104,18 @@ class ThinkPyParser:
         t.value = t.value[1:-1]  # Remove quotes
         return t
 
+    # def t_FLOAT(self, t: lex.LexToken) -> lex.LexToken:
+    #     r'-?\d*\.\d+([eE][-+]?\d+)?|-?\d+[eE][-+]?\d+'
+    #     t.value = float(t.value)
+    #     return t 
+
     def t_FLOAT(self, t: lex.LexToken) -> lex.LexToken:
         r'-?\d*\.\d+([eE][-+]?\d+)?|-?\d+[eE][-+]?\d+'
         t.value = float(t.value)
         return t 
     
     def t_NUMBER(self, t: lex.LexToken) -> lex.LexToken:
-        r'\d+'
+        r'-?\d+'
         t.value = int(t.value)
         return t
     
@@ -328,19 +334,13 @@ class ThinkPyParser:
 
     def p_for_statement(self, p):
         """
-        for_statement : FOR IDENTIFIER IN iterable COLON statement_list
-                    | FOR IDENTIFIER COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN COLON statement_list
-                    | FOR UNDERSCORE COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN COLON statement_list
-                    | FOR IDENTIFIER IN RANGE LPAREN expression RPAREN COLON statement_list
+        for_statement : FOR IDENTIFIER IN iterable COLON loop_body END
+                    | FOR IDENTIFIER COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN COLON loop_body END
+                    | FOR UNDERSCORE COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN COLON loop_body END
+                    | FOR IDENTIFIER IN RANGE LPAREN expression RPAREN COLON loop_body END
         """
-        if len(p) == 7:  # Simple for loop  
-            p[0] = {
-                'type': 'for_loop',
-                'iterator': p[2],
-                'iterable': p[4],
-                'body': p[6]
-            }
-        elif len(p) == 12:  # Enumerate with both variables
+        
+        if len(p) == 12:  # Enumerate with both variables
             p[0] = {
                 'type': 'enumerate_loop',
                 'index': p[2],
@@ -348,13 +348,34 @@ class ThinkPyParser:
                 'iterable': p[8],
                 'body': p[11]
             }
-        else: # Range loop
+        
+        elif len(p) == 10: # Range loop
             p[0] = {
                 'type': 'range_loop',
                 'iterator': p[2],
                 'range': p[6],
                 'body': p[9]    
             }
+
+        else:  # Simple for loop  
+            p[0] = {
+                'type': 'for_loop',
+                'iterator': p[2],
+                'iterable': p[4],
+                'body': p[6]
+            }
+        
+        
+
+    def p_loop_body(self, p):
+        """
+        loop_body : statement
+                | statement loop_body
+        """
+        if len(p) == 2:
+            p[0] = [p[1]]
+        else:
+            p[0] = [p[1]] + p[2]
 
     def p_iterable(self, p):
         """
@@ -370,25 +391,6 @@ class ThinkPyParser:
             else:  # enumerate
                 p[0] = {'type': 'enumerate', 'iterable': p[3]}
 
-    def p_dict_literal(self, p):
-        '''expression : LBRACE dict_content RBRACE
-                    | LBRACE RBRACE'''
-        if len(p) == 3:  # empty dictionary
-            p[0] = {}
-        else:
-            p[0] = dict(p[2])
-
-    def p_dict_content(self, p):
-        '''dict_content : dict_entry
-                        | dict_content COMMA dict_entry'''
-        if len(p) == 2:
-            p[0] = [p[1]]
-        else:
-            p[0] = p[1] + [p[3]]
-
-    def p_dict_entry(self, p):
-        '''dict_entry : expression COLON expression'''
-        p[0] = (p[1], p[3])
 
     def p_indexing(self, p):
         '''expression : expression LBRACKET expression RBRACKET'''
@@ -406,9 +408,11 @@ class ThinkPyParser:
 
     # Add operator precedence rules
     precedence = (
-        ('left', 'PLUS', 'MINUS'),
+        ('right', 'UMINUS'),
         ('left', 'TIMES', 'DIVIDE'),
-        ('left', 'GREATER', 'LESS', 'EQUALS_EQUALS', 'GREATER_EQUALS', 'LESS_EQUALS', 'NOT_EQUALS'),
+        ('left', 'PLUS', 'MINUS'),
+        ('left', 'GREATER', 'LESS', 'GREATER_EQUALS', 'LESS_EQUALS'),
+        ('EQUALS_EQUALS', 'NOT_EQUALS')
     )
 
     def p_expression(self, p):
@@ -449,13 +453,27 @@ class ThinkPyParser:
         """
         p[0] = p[1]
 
+    def p_factor_unary(self, p):
+        """
+        factor : MINUS factor %prec UMINUS
+        """
+        if isinstance(p[2], (int, float)):
+            p[0] = -p[2]
+        else:
+            p[0] = {'type': 'operation',
+                    'operator': '*',
+                    'left': -1,
+                    'right': p[2]}
+
     def p_factor(self, p):
         """
         factor : IDENTIFIER
             | NUMBER
+            | numeric_literal
             | STRING
             | BOOL
             | FLOAT
+            | MINUS FLOAT
             | list
             | function_call
             | LPAREN expression RPAREN
@@ -464,8 +482,22 @@ class ThinkPyParser:
         """
         if len(p) == 2:
             p[0] = p[1]
+        elif len(p) == 3 and p[1] == '-':
+            p[0] = -p[2]
         else:
             p[0] = p[2]  # For parenthesized expressions
+
+    def p_numeric_literal(self, p):
+        """
+        numeric_literal : NUMBER
+                    | FLOAT
+                    | MINUS NUMBER
+                    | MINUS FLOAT
+        """
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            p[0] = -p[2]
 
     def p_dict_literal(self, p):
         """
