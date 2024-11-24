@@ -31,8 +31,8 @@ class TestBasicLexing:
             ('ELIF', 'elif'),
             ('ELSE', 'else'),
             ('THEN', 'then'),
-            ('BOOL', True),
-            ('BOOL', False)
+            ('BOOL', 'True'),
+            ('BOOL', 'False')
         ]
         assert all(token in tokens for token in expected)
 

@@ -19,7 +19,9 @@ class TestBasicParsing:
 
     def test_parse_nested_structures(self, parser):
         """Test parsing of nested data structures."""
-        code = '''task "Structures":
+        code = '''
+        objective "Test Parse Nested Structures"
+        task "Structures":
             step "Test":
                 nested_list = [[1, 2], [3, 4]]
                 nested_dict = {"a": {"b": 2}}
@@ -35,7 +37,9 @@ class TestBasicParsing:
 class TestNumberParsing:
     def test_parse_number_literals(self, parser):
         """Test parsing of various number formats."""
-        code = '''task "Numbers":
+        code = '''
+        objective "Test Parse number literals"
+        task "Numbers":
             step "Test":
                 regular = 42
                 negative = -17
@@ -59,7 +63,9 @@ class TestNumberParsing:
 class TestControlFlow:
     def test_parse_if_elif_else(self, parser):
         """Test parsing of conditional statements."""
-        code = '''task "Logic":
+        code = '''
+        objective "Test Parse if elif else"
+        task "Logic":
             step "Test":
                 decide:
                     if x > 0 then:
@@ -67,7 +73,8 @@ class TestControlFlow:
                     elif x == 0 then:
                         return None
                     else:
-                        return False'''
+                        return False
+        run "Logic"'''
                         
         ast = parser.parse(code)
         conditions = ast['tasks'][0]['body'][0]['statements'][0]['conditions']
@@ -78,12 +85,17 @@ class TestControlFlow:
 
     def test_parse_loops(self, parser):
         """Test parsing of different loop types."""
-        code = '''task "Loops":
+        code = '''
+        objective "Test Parse Loops"
+        task "Loops":
             step "Test":
                 for i in range(5):
                     print(i)
+                end
                 for idx, val in enumerate(list):
-                    print(idx)'''
+                    print(idx)
+                end
+        run "Loops"'''
                     
         ast = parser.parse(code)
         statements = ast['tasks'][0]['body'][0]['statements']
@@ -93,7 +105,9 @@ class TestControlFlow:
 class TestFunctionDefinitions:
     def test_parse_subtask(self, parser):
         """Test parsing of subtask definitions."""
-        code = '''task "Functions":
+        code = '''
+        objective "Test Parse Subtask"
+        task "Functions":
             subtask "calculate":
                 x = 1.5e3
                 y = -2.718

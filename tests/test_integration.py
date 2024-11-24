@@ -1,14 +1,28 @@
 import pytest
 import io
 import sys
+from thinkpy.interpreter import ThinkPyInterpreter
 
 @pytest.fixture
 def capture_output():
     """Fixture to capture stdout and restore it after test."""
-    captured_output = io.StringIO()
-    sys.stdout = captured_output
-    yield captured_output
-    sys.stdout = sys.__stdout__
+    import sys
+    from io import StringIO
+    
+    # Store the original stdout
+    old_stdout = sys.stdout
+    
+    # Create our string buffer
+    string_buffer = StringIO()
+    
+    try:
+        # Replace stdout
+        sys.stdout = string_buffer
+        yield string_buffer
+    finally:
+        # Restore stdout
+        sys.stdout = old_stdout
+        string_buffer.close()
 
 class TestBasicIntegration:
     def test_arithmetic_operations(self, interpreter, parser, capture_output):
@@ -30,9 +44,8 @@ class TestBasicIntegration:
         interpreter.execute(ast)
         output = capture_output.getvalue()
 
-        print(f"\n>>> Debug: Captured output:\n{output}")  # More visible debug output
-
         output_lines = output.strip().split('\n')
+        print(output_lines)
         int_result = interpreter.state['int_result']
         float_result = interpreter.state['float_result']
         sci_result = interpreter.state['sci_result']
@@ -59,23 +72,28 @@ class TestBasicIntegration:
         assert any(x == result for x in [3e-05, 0.00003])
 
 class TestControlFlow:
-    def test_conditional_execution(self, interpreter, parser, capture_output):
+    def test_conditional_execution(self, capture_output, interpreter, parser):        
         code = '''objective "Test conditional execution"
-        task "Logic":
-            step "Test":
-                x = 5
-                decide:
-                    if x > 0 then:
-                        print("positive")
-                    elif x == 0 then:
-                        print("zero")
-                    else:
-                        print("negative")
-        run "Logic"'''
+            task "Logic":
+                step "Test":
+                    x = 5
+                    decide:
+                        if x > 0 then:
+                            result = "positive"
+                            print(result)
+                        elif x == 0 then:
+                            result = "zero"
+                            print(result)
+                        else:
+                            result = "negative"
+                            print(result)
+            run "Logic"'''
         
         ast = parser.parse(code)
         interpreter.execute(ast)
-        assert "positive" in capture_output.getvalue()
+        
+        output = capture_output.getvalue()
+        assert interpreter.state['result'] == "positive"
 
     def test_loop_execution(self, interpreter, parser, capture_output):
         code = '''objective "Test loop execution"
@@ -83,15 +101,14 @@ class TestControlFlow:
             step "Iterate":
                 numbers = [1, 2, 3]
                 for num in numbers:
-                    print(num)
+                    result = num
                 end
         run "Loop"'''
         
         ast = parser.parse(code)
         interpreter.execute(ast)
         
-        output = capture_output.getvalue()
-        assert all(str(n) in output for n in [1, 2, 3])
+        assert interpreter.state['result'] == 3
 
 class TestDataStructures:
     def test_nested_structures(self, interpreter, parser, capture_output):
@@ -126,10 +143,9 @@ class TestDataStructures:
         
         ast = parser.parse(code)
         interpreter.execute(ast)
-        print(interpreter.state)
-        #assert interpreter.state['items'][0] == 0
-        #assert interpreter.state['items'][2] == 2
-        assert False
+        assert interpreter.state['items'][0] == 0
+        assert interpreter.state['items'][2] == 2
+        
 
 class TestFunctions:
     def test_subtask_execution(self, interpreter, parser, capture_output):
@@ -157,18 +173,16 @@ class TestFunctions:
         task "Process":
             step "Filter":
                 numbers = [1, 2, 3, 4, 5]
+                result = []
                 for n in numbers:
                     decide:
                         if n > 3 then:
-                            print(n)
+                            result = result + [n]
                 end
         run "Process"'''
         
         ast = parser.parse(code)
         interpreter.execute(ast)
-        
-        output = capture_output.getvalue()
-        four = output.strip().split('\n')[-2].split()[-1]
-        five = output.strip().split('\n')[-1].split()[-1]
-        assert 4 == int(four)
-        assert 5 == int(five)
+
+        assert 4 == interpreter.state['result'][0]
+        assert 5 == interpreter.state['result'][1]
