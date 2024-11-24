@@ -229,22 +229,49 @@ class ThinkPyInterpreter:
             self.state[statement['variable']] = value
             self.explain_print("VARIABLE", f"Assigned {value} to {statement['variable']}")
         
+        elif stmt_type == 'enumerate_loop':
+            if statement['iterable'] not in self.state:
+                raise RuntimeError(f"Undefined variable: {statement['iterable']}")
+            
+            iterable = self.state[statement['iterable']]
+            if not hasattr(iterable, '__iter__'):
+                raise RuntimeError(f"{statement['iterable']} is not a collection we can iterate over")
+            
+            if self.explain_mode:
+                self.explain_print("LOOP", f"Starting enumerate loop over {statement['iterable']}")
+                self.indent_level += 1
+            
+            for i, value in enumerate(iterable):
+                self.state[statement['index']] = i
+                self.state[statement['element']] = value
+                
+                if self.explain_mode and i < self.max_iterations_shown:
+                    self.explain_print("ITERATION", f"Loop #{i + 1}: {statement['index']} = {i}, {statement['element']} = {value}")
+                
+                for body_statement in statement['body']:
+                    result = self.execute_statement(body_statement)
+                    if isinstance(result, dict) and result.get('type') == 'return':
+                        if self.explain_mode:
+                            self.indent_level -= 1
+                        return result
+            
+            if self.explain_mode:
+                self.explain_print("COMPLETE", f"Loop finished")
+                self.indent_level -= 1
+        
         elif stmt_type == 'for_loop':
             return self.execute_for_loop(statement)
-        
-        elif stmt_type == 'enumerate_loop':
-            return self.execute_enumerate_loop(statement)
         
         elif stmt_type == 'range_loop':
             return self.execute_range_loop(statement)
         
         elif stmt_type == 'function_call':
             return self.execute_function_call(statement)
-            
+        
         elif stmt_type == 'return':
             value = self.evaluate_expression(statement['value'])
             return {'type': 'return', 'value': value}
-            
+        
         elif stmt_type == 'decide':
             return self.execute_decide(statement)
 
@@ -276,8 +303,10 @@ class ThinkPyInterpreter:
 
                 if isinstance(container, (dict, list)):
                     try:
+                        if isinstance(container, list):
+                            key = int(key)
                         return container[key]
-                    except (KeyError, IndexError) as e:
+                    except (KeyError, IndexError, ValueError) as e:
                         raise RuntimeError(f"Invalid index/key: {key} for container {container}")
                 else:
                     raise RuntimeError(f"Cannot index into type: {type(container)}")                
@@ -300,6 +329,16 @@ class ThinkPyInterpreter:
             # Handle string concatenation
             if isinstance(left, str) or isinstance(right, str):
                 return str(left) + str(right)
+            elif isinstance(left, list):
+                if isinstance(right, list):
+                    return left + right
+                else:
+                    raise RuntimeError(f"Cannot concatenate list with non-list: {right}")
+            elif isinstance(right, list):
+                if isinstance(left, list):
+                    return left + right
+                else:
+                    raise RuntimeError(f"Cannot concatenate list with non-list: {left}")
             return left + right
         elif op == '-': return float(left - right)
         elif op == '*': return float(left * right)
@@ -415,33 +454,54 @@ class ThinkPyInterpreter:
     def execute_for_loop(self, loop_stmt):
         """Execute a for loop with educational explanations"""
         iterator_name = loop_stmt['iterator']
-        iterable_name = loop_stmt['iterable']
-
-        if iterable_name not in self.state:
-            raise RuntimeError(f"Undefined variable: {iterable_name}")
+        iterable_spec = loop_stmt['iterable']
         
-        iterable = self.state[iterable_name]
+        if isinstance(iterable_spec, dict) and iterable_spec['type'] == 'enumerate':
+            # Handle enumerate case
+            if iterable_spec['iterable'] not in self.state:
+                raise RuntimeError(f"Undefined variable: {iterable_spec['iterable']}")
+            
+            iterable = enumerate(self.state[iterable_spec['iterable']])
+            value_var = iterable_spec['value_var']
+        else:
+            # Handle normal iteration
+            if iterable_spec not in self.state:
+                raise RuntimeError(f"Undefined variable: {iterable_spec}")
+            
+            iterable = self.state[iterable_spec]
+            
         if not hasattr(iterable, '__iter__'):
-            raise RuntimeError(f"{iterable_name} is not a collection we can iterate over")
+            raise RuntimeError(f"{iterable_spec} is not a collection we can iterate over")
         
         if self.explain_mode:
-            self.explain_print("LOOP", f"Starting a loop that will go through each item in {iterable_name}")
-            self.explain_print("INFO", f"Total number of items to process: {len(iterable)}")
+            self.explain_print("LOOP", f"Starting a loop that will go through each item in {iterable_spec}")
             self.indent_level += 1
             self.iteration_count = 0
 
-        for i, item in enumerate(iterable):
-            self.state[iterator_name] = item
+        for item in iterable:
+            if isinstance(iterable_spec, dict) and iterable_spec['type'] == 'enumerate':
+                # For enumerate, item is a tuple of (index, value)
+                self.state[iterator_name] = item[0]
+                self.state[value_var] = item[1]
+                
+                if self.explain_mode:
+                    # Only show details for the first few iterations
+                    if self.iteration_count < self.max_iterations_shown:
+                        self.explain_print("ITERATION", 
+                            f"Loop #{self.iteration_count + 1}: {iterator_name} = {item[0]}, {value_var} = {item[1]}")
+            else:
+                self.state[iterator_name] = item
+                
+                if self.explain_mode:
+                    # Only show details for the first few iterations
+                    if self.iteration_count < self.max_iterations_shown:
+                        self.explain_print("ITERATION", f"Loop #{self.iteration_count + 1}: {iterator_name} = {item}")
             
             if self.explain_mode:
-                # Only show details for the first few iterations
-                if i < self.max_iterations_shown:
-                    self.explain_print("ITERATION", f"Loop #{i + 1}: {iterator_name} = {item}")
-                elif i == self.max_iterations_shown:
-                    remaining = len(iterable) - self.max_iterations_shown
-                    self.explain_print("INFO", f"... {remaining} more iterations will be processed ...")
-                elif i == len(iterable) - 1:
-                    self.explain_print("INFO", f"Final iteration completed: {iterator_name} = {item}")
+                if self.iteration_count == self.max_iterations_shown:
+                    self.explain_print("INFO", "... more iterations will be processed ...")
+            
+            self.iteration_count += 1
             
             for statement in loop_stmt['body']:
                 result = self.execute_statement(statement)
@@ -451,13 +511,13 @@ class ThinkPyInterpreter:
                     return result
         
         if self.explain_mode:
-            self.explain_print("COMPLETE", f"Loop finished after processing {len(iterable)} items")
+            self.explain_print("COMPLETE", f"Loop finished after {self.iteration_count} iterations")
             self.indent_level -= 1
     
     def execute_enumerate_loop(self, loop_stmt):
         """Execute an enumerate loop"""
-        value_var = loop_stmt['index']
-        index_var = loop_stmt['element']
+        index_var = loop_stmt['index']
+        value_var = loop_stmt['element']
         iterable_name = loop_stmt['iterable']
 
         if iterable_name not in self.state:
@@ -510,7 +570,6 @@ class ThinkPyInterpreter:
             end = self.evaluate_expression(range_expr)
             range_obj = range(end)
         
-
         if self.explain_mode:
             self.explain_print("LOOP", f"Starting range loop from 0 to {len(range_obj)}")
             self.explain_print("INFO", f"Total iterations: {len(range_obj)}")
@@ -528,6 +587,7 @@ class ThinkPyInterpreter:
             
             for statement in loop_stmt['body']:
                 result = self.execute_statement(statement)
+                
                 if isinstance(result, dict) and result.get('type') == 'return':
                     if self.explain_mode:
                         self.indent_level -= 1
@@ -565,21 +625,19 @@ if __name__ == "__main__":
     
     # Example ThinkPy program
     program = '''
-    objective "Test range loop"
-
-    task "Loop Examples" {
-        step "Setup Data" {
-            numbers = [10, 20, 30, 40, 50]
-        }
-        
-        step "Range Loop" {
-            for i in range(len(numbers)) {
-                print("Position", i, "contains", numbers[i])
-            }
-        }
-    }
+        objective "Test"
+        task "Math":
+            step "Calculate":
+                int_result = 42 + -17
+                float_result = 3.14 * -2.5
+                sci_result = 1.5e3 / 1e2
+                mixed = -42 * 3.14159
+                print(int_result)
+                print(float_result)
+                print(sci_result)
+                print(mixed)
+    run "Math"
     '''
-    
     # Try different formatting styles
     styles = ["default", "minimal", "detailed", "color", "markdown", "educational"]
         

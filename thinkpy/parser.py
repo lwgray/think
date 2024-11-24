@@ -38,7 +38,7 @@ class ThinkPyParser:
         'GREATER', 'LESS', 'EQUALS_EQUALS', 'BOOL',
         'ELIF', 'FLOAT', 'GREATER_EQUALS', 'LESS_EQUALS',
         'NOT_EQUALS', 'COLON', 'UNDERSCORE', 'RANGE',
-        'ENUMERATE'
+        'ENUMERATE', 'NEWLINE', 'END'
     )
 
     # Reserved words mapping
@@ -59,7 +59,8 @@ class ThinkPyParser:
         'False': 'BOOL',
         'elif': 'ELIF',
         'range': 'RANGE',
-        'enumerate': 'ENUMERATE'
+        'enumerate': 'ENUMERATE',
+        'end': 'END'
     }
 
     # Regular expression rules for simple tokens
@@ -103,19 +104,29 @@ class ThinkPyParser:
         t.value = t.value[1:-1]  # Remove quotes
         return t
 
+    # def t_FLOAT(self, t: lex.LexToken) -> lex.LexToken:
+    #     r'-?\d*\.\d+([eE][-+]?\d+)?|-?\d+[eE][-+]?\d+'
+    #     t.value = float(t.value)
+    #     return t 
+
     def t_FLOAT(self, t: lex.LexToken) -> lex.LexToken:
         r'-?\d*\.\d+([eE][-+]?\d+)?|-?\d+[eE][-+]?\d+'
         t.value = float(t.value)
         return t 
     
     def t_NUMBER(self, t: lex.LexToken) -> lex.LexToken:
-        r'\d+'
+        r'-?\d+'
         t.value = int(t.value)
         return t
     
     def t_BOOL(self, t: lex.LexToken) -> lex.LexToken:
         r'True|False'
         t.value = True if t.value == 'True' else False
+        return t
+    
+    def t_NEWLINE(self, t: lex.LexToken) -> lex.LexToken:
+        r'\n+'
+        t.lexer.lineno += len(t.value)
         return t
 
     def t_error(self, t: lex.LexToken):
@@ -170,7 +181,7 @@ class ThinkPyParser:
 
     def p_task(self, p):
         """
-        task : TASK STRING LBRACE step_or_subtask_list RBRACE
+        task : TASK STRING COLON step_or_subtask_list
         """
         p[0] = {'name': p[2], 'body': p[4]}
 
@@ -188,13 +199,13 @@ class ThinkPyParser:
 
     def p_step(self, p):
         """
-        step : STEP STRING LBRACE statement_list RBRACE
+        step : STEP STRING COLON statement_list
         """
         p[0] = {'type': 'step', 'name': p[2], 'statements': p[4]}
 
     def p_subtask(self, p):
         """
-        subtask : SUBTASK STRING LBRACE statement_list RBRACE
+        subtask : SUBTASK STRING COLON statement_list
         """
         p[0] = {'type': 'subtask', 'name': p[2], 'statements': p[4]}
 
@@ -251,7 +262,7 @@ class ThinkPyParser:
 
     def p_decide_statement(self, p):
         """
-        decide_statement : DECIDE LBRACE condition_list RBRACE
+        decide_statement : DECIDE COLON condition_list 
         """
         p[0] = {'type': 'decide', 'conditions': p[3]}
 
@@ -287,7 +298,7 @@ class ThinkPyParser:
 
     def p_if_condition(self, p):
         """
-        if_condition : IF expression THEN LBRACE statement_list RBRACE
+        if_condition : IF expression THEN COLON statement_list 
         """
         p[0] = {
             'type': 'if', 
@@ -297,7 +308,7 @@ class ThinkPyParser:
 
     def p_else_if_condition(self, p):
         """
-        else_if_condition : ELIF expression THEN LBRACE statement_list RBRACE
+        else_if_condition : ELIF expression THEN COLON statement_list
         """
         p[0] = {
             'type': 'elif',
@@ -307,8 +318,7 @@ class ThinkPyParser:
 
     def p_else_condition(self, p):
         """
-        else_condition : ELSE LBRACE statement_list RBRACE
-                    | ELSE LBRACE RBRACE
+        else_condition : ELSE COLON statement_list
         """
         print(f"DEBUG: Parsing else condition with {len(p)} symbols")
         if len(p) == 5:  # With statements
@@ -324,19 +334,16 @@ class ThinkPyParser:
 
     def p_for_statement(self, p):
         """
-        for_statement : FOR IDENTIFIER IN iterable LBRACE statement_list RBRACE
-                    | FOR IDENTIFIER COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN LBRACE statement_list RBRACE
-                    | FOR UNDERSCORE COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN LBRACE statement_list RBRACE
-                    | FOR IDENTIFIER IN RANGE LPAREN expression RPAREN LBRACE statement_list RBRACE
+        for_statement : FOR IDENTIFIER IN iterable COLON loop_body END
+                    | FOR IDENTIFIER COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN COLON loop_body END
+                    | FOR UNDERSCORE COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN COLON loop_body END
+                    | FOR IDENTIFIER IN RANGE LPAREN expression RPAREN COLON loop_body END
         """
-        if len(p) == 8:  # Simple for loop  
-            p[0] = {
-                'type': 'for_loop',
-                'iterator': p[2],
-                'iterable': p[4],
-                'body': p[6]
-            }
-        elif len(p) == 13:  # Enumerate with both variables
+        print(f"DEBUG: p_for_statement called with {len(p)} symbols")
+        print(f"DEBUG: Symbols: {[str(x) for x in p[1:]]}")
+        
+        if len(p) == 13:
+            print("DEBUG: Handling enumerate case")
             p[0] = {
                 'type': 'enumerate_loop',
                 'index': p[2],
@@ -344,7 +351,9 @@ class ThinkPyParser:
                 'iterable': p[8],
                 'body': p[11]
             }
-        else: # Range loop
+        
+        elif len(p) == 11: # Range loop
+            print("DEBUG: Handling range case")
             p[0] = {
                 'type': 'range_loop',
                 'iterator': p[2],
@@ -352,39 +361,45 @@ class ThinkPyParser:
                 'body': p[9]    
             }
 
+        else:
+            print("DEBUG: Handling simple loop case")
+            p[0] = {
+                'type': 'for_loop',
+                'iterator': p[2],
+                'iterable': p[4],
+                'body': p[6]
+            }
+        
+
+    def p_loop_body(self, p):
+        """
+        loop_body : statement
+                | statement loop_body
+        """
+        if len(p) == 2:
+            p[0] = [p[1]]
+        else:
+            p[0] = [p[1]] + p[2]
+
     def p_iterable(self, p):
         """
         iterable : IDENTIFIER
                 | RANGE LPAREN expression RPAREN
                 | ENUMERATE LPAREN IDENTIFIER RPAREN
         """
+        print(f"DEBUG: p_iterable called with {len(p)} symbols")
+        print(f"DEBUG: Symbols: {[str(x) for x in p[1:]]}")
+
         if len(p) == 2:  # Simple identifier
+            print("DEBUG: Simple identifier case")
             p[0] = p[1]
         elif len(p) == 5:  # range() or enumerate()
+            print(f"DEBUG: Complex case: {p[1]}")
             if p[1] == 'range':
                 p[0] = {'type': 'range', 'end': p[3]}
             else:  # enumerate
                 p[0] = {'type': 'enumerate', 'iterable': p[3]}
 
-    def p_dict_literal(self, p):
-        '''expression : LBRACE dict_content RBRACE
-                    | LBRACE RBRACE'''
-        if len(p) == 3:  # empty dictionary
-            p[0] = {}
-        else:
-            p[0] = dict(p[2])
-
-    def p_dict_content(self, p):
-        '''dict_content : dict_entry
-                        | dict_content COMMA dict_entry'''
-        if len(p) == 2:
-            p[0] = [p[1]]
-        else:
-            p[0] = p[1] + [p[3]]
-
-    def p_dict_entry(self, p):
-        '''dict_entry : expression COLON expression'''
-        p[0] = (p[1], p[3])
 
     def p_indexing(self, p):
         '''expression : expression LBRACKET expression RBRACKET'''
@@ -402,9 +417,11 @@ class ThinkPyParser:
 
     # Add operator precedence rules
     precedence = (
-        ('left', 'PLUS', 'MINUS'),
+        ('right', 'UMINUS'),
         ('left', 'TIMES', 'DIVIDE'),
-        ('left', 'GREATER', 'LESS', 'EQUALS_EQUALS', 'GREATER_EQUALS', 'LESS_EQUALS', 'NOT_EQUALS'),
+        ('left', 'PLUS', 'MINUS'),
+        ('left', 'GREATER', 'LESS', 'GREATER_EQUALS', 'LESS_EQUALS'),
+        ('EQUALS_EQUALS', 'NOT_EQUALS')
     )
 
     def p_expression(self, p):
@@ -445,13 +462,27 @@ class ThinkPyParser:
         """
         p[0] = p[1]
 
+    def p_factor_unary(self, p):
+        """
+        factor : MINUS factor %prec UMINUS
+        """
+        if isinstance(p[2], (int, float)):
+            p[0] = -p[2]
+        else:
+            p[0] = {'type': 'operation',
+                    'operator': '*',
+                    'left': -1,
+                    'right': p[2]}
+
     def p_factor(self, p):
         """
         factor : IDENTIFIER
             | NUMBER
+            | numeric_literal
             | STRING
             | BOOL
             | FLOAT
+            | MINUS FLOAT
             | list
             | function_call
             | LPAREN expression RPAREN
@@ -460,8 +491,22 @@ class ThinkPyParser:
         """
         if len(p) == 2:
             p[0] = p[1]
+        elif len(p) == 3 and p[1] == '-':
+            p[0] = -p[2]
         else:
             p[0] = p[2]  # For parenthesized expressions
+
+    def p_numeric_literal(self, p):
+        """
+        numeric_literal : NUMBER
+                    | FLOAT
+                    | MINUS NUMBER
+                    | MINUS FLOAT
+        """
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            p[0] = -p[2]
 
     def p_dict_literal(self, p):
         """
