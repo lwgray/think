@@ -320,7 +320,6 @@ class ThinkPyParser:
         """
         else_condition : ELSE COLON statement_list
         """
-        print(f"DEBUG: Parsing else condition with {len(p)} symbols")
         if len(p) == 5:  # With statements
             p[0] = {
                 'type': 'else',
@@ -338,12 +337,8 @@ class ThinkPyParser:
                     | FOR IDENTIFIER COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN COLON loop_body END
                     | FOR UNDERSCORE COMMA IDENTIFIER IN ENUMERATE LPAREN IDENTIFIER RPAREN COLON loop_body END
                     | FOR IDENTIFIER IN RANGE LPAREN expression RPAREN COLON loop_body END
-        """
-        print(f"DEBUG: p_for_statement called with {len(p)} symbols")
-        print(f"DEBUG: Symbols: {[str(x) for x in p[1:]]}")
-        
+        """      
         if len(p) == 13:
-            print("DEBUG: Handling enumerate case")
             p[0] = {
                 'type': 'enumerate_loop',
                 'index': p[2],
@@ -353,7 +348,6 @@ class ThinkPyParser:
             }
         
         elif len(p) == 11: # Range loop
-            print("DEBUG: Handling range case")
             p[0] = {
                 'type': 'range_loop',
                 'iterator': p[2],
@@ -362,7 +356,6 @@ class ThinkPyParser:
             }
 
         else:
-            print("DEBUG: Handling simple loop case")
             p[0] = {
                 'type': 'for_loop',
                 'iterator': p[2],
@@ -387,14 +380,9 @@ class ThinkPyParser:
                 | RANGE LPAREN expression RPAREN
                 | ENUMERATE LPAREN IDENTIFIER RPAREN
         """
-        print(f"DEBUG: p_iterable called with {len(p)} symbols")
-        print(f"DEBUG: Symbols: {[str(x) for x in p[1:]]}")
-
         if len(p) == 2:  # Simple identifier
-            print("DEBUG: Simple identifier case")
             p[0] = p[1]
         elif len(p) == 5:  # range() or enumerate()
-            print(f"DEBUG: Complex case: {p[1]}")
             if p[1] == 'range':
                 p[0] = {'type': 'range', 'end': p[3]}
             else:  # enumerate
