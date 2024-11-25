@@ -8,7 +8,6 @@ ThinkPy is an educational programming language designed to teach computational t
 - **Interactive Execution**: Run your code and see results in real-time
 - **Explain Mode**: Get detailed explanations of what each part of your code does
 - **Jupyter Integration**: Use ThinkPy directly in Jupyter notebooks
-- **Built-in Visualization**: Visualize data structures and program flow
 - **Educational Focus**: Learn computational thinking concepts through hands-on coding
 
 ## Installation
@@ -29,31 +28,25 @@ Here's a simple ThinkPy program that calculates student grades:
 ```python
 objective "Calculate student grades"
 
-task "Data Collection" {
-    step "Get scores" {
+task "Data Collection":
+    step "Get scores":
         scores = [85, 92, 78, 90, 88]
-    }
-}
 
-task "Analysis" {
-    subtask "Calculate Average" {
+task "Analysis":
+    subtask "Calculate Average":
         total = sum(scores)
         avg = total / len(scores)
         return avg
-    }
     
-    step "Determine Grade" {
+    step "Determine Grade":
         final_score = Calculate_Average()
-        decide {
-            if final_score >= 90 then
+        decide:
+            if final_score >= 90 then:
                 grade = "A"
-            else if final_score >= 80 then
+            elif final_score >= 80 then:
                 grade = "B"
-            else
+            else:
                 grade = "C"
-        }
-    }
-}
 
 run "Data Collection"
 run "Analysis"
@@ -70,45 +63,47 @@ run "Analysis"
 
 2. **Task**: Major components of your solution
    ```python
-   task "Task Name" {
+   task "Task Name":
        # steps or subtasks
-   }
    ```
 
 3. **Subtask**: Reusable pieces of code
    ```python
-   subtask "Subtask Name" {
+   subtask "Subtask Name":
        # statements
        return result
-   }
    ```
 
 4. **Step**: Specific actions
    ```python
-   step "Step Name" {
+   step "Step Name":
        # statements
-   }
    ```
 
 ### Control Flow
 
 1. **Decide (If/Else)**:
    ```python
-   decide {
-       if condition then
+    decide:
+        if condition then:
            # statements
-       else if another_condition then
+        elif another_condition then:
            # statements
-       else
+        else:
            # statements
-   }
    ```
 
-2. **Repeat**:
+2. **Loopd**:
    ```python
-   repeat 5 times {
+    for num in numbers:
        # statements
-   }
+    end
+    for index, value in enumerate(items):
+        print(index, value)
+    end
+    for _, value in enumerate(items):
+        print(value)
+    end
    ```
 
 ### Data Types
@@ -117,6 +112,7 @@ run "Analysis"
 - Strings: `"Hello, World!"`
 - Lists: `[1, 2, 3, 4, 5]`
 - Variables: `score = 85`
+- Dictionaries `{'key': 'value'}
 
 ## Jupyter Notebook Usage
 
@@ -145,28 +141,24 @@ run "Analysis"
 ```python
 objective "Analyze temperature data"
 
-task "Data Collection" {
-    step "Get readings" {
+task "Data Collection":
+    step "Get readings":
         temps = [72, 75, 68, 70, 73]
-    }
-}
 
-task "Analysis" {
-    subtask "Calculate Average" {
+task "Analysis":
+    subtask "Calculate Average":
         total = sum(temps)
         avg = total / len(temps)
         return avg
-    }
     
-    subtask "Find High" {
+    subtask "Find High":
         max_temp = temps[0]
-        repeat len(temps) times {
-            if temps[index] > max_temp then
-                max_temp = temps[index]
-        }
+        for index, value in enumerate(temps):
+            decide:
+                if temps[index] > max_temp then:
+                    max_temp = temps[index]
+        end
         return max_temp
-    }
-}
 
 run "Data Collection"
 run "Analysis"
@@ -176,22 +168,18 @@ run "Analysis"
 ```python
 objective "Calculate final grades"
 
-task "Setup" {
-    step "Initialize data" {
+task "Setup":
+    step "Initialize data":
         scores = [85, 92, 78]
         weights = [0.3, 0.4, 0.3]
-    }
-}
 
-task "Calculate" {
-    subtask "Weighted Average" {
+task "Calculate":
+    subtask "Weighted Average":
         total = 0
-        repeat 3 times {
+        for index in range(3):
             total = total + (scores[index] * weights[index])
-        }
+        end
         return total
-    }
-}
 
 run "Setup"
 run "Calculate"
@@ -202,12 +190,6 @@ run "Calculate"
 ### Running Tests
 ```bash
 python -m pytest tests/
-```
-
-### Building Documentation
-```bash
-cd docs
-make html
 ```
 
 ## Contributing
