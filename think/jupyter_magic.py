@@ -5,11 +5,11 @@ import io
 from typing import Optional
 import argparse
 
-from .parser import parse_thinkpy
-from .interpreter import ThinkPyInterpreter
+from .parser import parse_think
+from .interpreter import ThinkInterpreter
 
 @magics_class
-class ThinkPyMagics(Magics):
+class ThinkMagics(Magics):
     def __init__(self, shell):
         super().__init__(shell)
         self.explain_mode = False
@@ -18,7 +18,7 @@ class ThinkPyMagics(Magics):
 
     def parse_magic_args(self, line):
         """Parse magic arguments using argparse"""
-        parser = argparse.ArgumentParser(description='ThinkPy magic arguments')
+        parser = argparse.ArgumentParser(description='Think magic arguments')
         parser.add_argument('--explain', action='store_true',
                           help='Enable explanation mode')
         parser.add_argument('--style', type=str, default='default',
@@ -109,10 +109,10 @@ class ThinkPyMagics(Magics):
         
         error_html = f""" 
         {css}
-        <div class="thinkpy-error">
+        <div class="think-error">
         <div class="error-content" style="color: black;">
         <span style="color: red;">
-        ThinkPy Error: {error.message}
+        Think Error: {error.message}
         </span> 
         Line: {error.line} 
         Column: {error.column} 
@@ -144,11 +144,11 @@ class ThinkPyMagics(Magics):
         return error_html
 
     @line_cell_magic
-    def thinkpy(self, line='', cell=None):
-        """Execute ThinkPy code in a Jupyter notebook cell.
+    def think(self, line='', cell=None):
+        """Execute Think code in a Jupyter notebook cell.
         
         Usage:
-            %%thinkpy [--explain] [--style STYLE] [--max-iterations N]
+            %%think [--explain] [--style STYLE] [--max-iterations N]
             
         Styles:
             default    - Basic bracketed format
@@ -179,7 +179,7 @@ class ThinkPyMagics(Magics):
                 display(HTML(self.format_error_message("Failed to parse ThinkPy code")))
                 return
             
-            interpreter = ThinkPyInterpreter(
+            interpreter = ThinkInterpreter(
                 explain_mode=self.explain_mode,
                 format_style=self.style,
                 max_iterations_shown=self.max_iterations
@@ -189,7 +189,7 @@ class ThinkPyMagics(Magics):
             if hasattr(e, 'format_message'):
                 error_html = self.format_error_message(e)
             else:
-                error_html = self.format_error_message(type('ThinkPyError', (), {
+                error_html = self.format_error_message(type('ThinkError', (), {
                     'message': str(e),
                     'line': None,
                     'column': None,
@@ -200,4 +200,4 @@ class ThinkPyMagics(Magics):
 
 def load_ipython_extension(ipython):
     """Register the ThinkPy magic when the extension is loaded."""
-    ipython.register_magics(ThinkPyMagics)
+    ipython.register_magics(ThinkMagics)

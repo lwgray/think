@@ -1,12 +1,12 @@
 """
-ThinkPy Parser Module
+Think Parser Module
 
-This module implements the parser for the ThinkPy language, handling the conversion
+This module implements the parser for the Think language, handling the conversion
 of source code into an Abstract Syntax Tree (AST). It uses PLY (Python Lex-Yacc)
 for lexical analysis and parsing.
 
 Key Features:
-- Lexical analysis of ThinkPy tokens
+- Lexical analysis of Think tokens
 - Parsing of program structure (objective, tasks, steps, etc.)
 - Support for expressions and control flow
 - Comprehensive error handling
@@ -17,15 +17,15 @@ import ply.yacc as yacc
 from typing import Any, Dict, List, Optional, Union
 import traceback
 try:
-    from .errors import ThinkPyParserError
+    from .errors import ThinkParserError
 except ImportError:
-    from errors import ThinkPyParserError
+    from errors import ThinkParserError
 
 
-class ThinkPyParser:
+class ThinkParser:
     """
-    Parser class for ThinkPy language.
-    Handles lexical analysis and parsing of ThinkPy code.
+    Parser class for Think language.
+    Handles lexical analysis and parsing of Think code.
     """
     
     tokens = (
@@ -136,7 +136,7 @@ class ThinkPyParser:
         print(f"DEBUG: Remaining input: {t.value[:20]}")
         line_num = self._find_line_number(t.lexpos)
         col_num = self._find_column_position(t.lexpos)
-        raise ThinkPyParserError(
+        raise ThinkParserError(
             f"Illegal character '{t.value[0]}'",
             line=line_num,
             column=col_num
@@ -598,7 +598,7 @@ class ThinkPyParser:
             col_num = self._find_column_position(p.lexpos)
             source_context = self.get_source_context(p.lexpos)
             
-            raise ThinkPyParserError(
+            raise ThinkParserError(
                 message=f"Syntax error at token {p.type}",
                 line=line_num,
                 column=col_num,
@@ -623,35 +623,35 @@ class ThinkPyParser:
 
     def parse(self, code: str) -> Dict[str, Any]:
         """
-        Parse ThinkPy code with enhanced error reporting.
+        Parse Think code with enhanced error reporting.
         
         Args:
-            code: String containing ThinkPy source code
+            code: String containing Think source code
             
         Returns:
             Dict containing the parsed Abstract Syntax Tree
             
         Raises:
-            ThinkPyParserError: If parsing fails, with detailed error information
+            ThinkParserError: If parsing fails, with detailed error information
         """
         try:
             self.source_code = code
             return self.parser.parse(code, lexer=self.lexer)
-        except ThinkPyParserError:
+        except ThinkParserError:
             raise
         except Exception as e:
             tb = traceback.format_exc()
-            raise ThinkPyParserError(f"Parsing failed: {str(e)}\n\nTraceback:\n{tb}")
+            raise ThinkParserError(f"Parsing failed: {str(e)}\n\nTraceback:\n{tb}")
 
 # Create a global parser instance
-_parser = ThinkPyParser()
+_parser = ThinkParser()
 
-def parse_thinkpy(code: str) -> Dict[str, Any]:
+def parse_think(code: str) -> Dict[str, Any]:
     """
-    Convenience function to parse ThinkPy code using the global parser instance.
+    Convenience function to parse Think code using the global parser instance.
     
     Args:
-        code: String containing ThinkPy source code
+        code: String containing Think source code
         
     Returns:
         Dict containing the parsed Abstract Syntax Tree
