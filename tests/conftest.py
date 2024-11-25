@@ -1,6 +1,6 @@
 import pytest
-from thinkpy.parser import ThinkPyParser
-from thinkpy.interpreter import ThinkPyInterpreter
+from think.parser import ThinkParser
+from think.interpreter import ThinkInterpreter
 
 @pytest.fixture
 def parser():
