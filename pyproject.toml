@@ -32,7 +32,7 @@ Repository = "https://github.com/lwgray/think.git"
 Issues = "https://github.com/lwgray/think/issues"
 
 [tool.setuptools]
-packages = ["thinkpy"]
+packages = ["think"]
 
 [tool.setuptools.package-data]
 thinkpy = ["py.typed"]

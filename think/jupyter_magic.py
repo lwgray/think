@@ -44,7 +44,7 @@ class ThinkMagics(Magics):
         """Format error message with proper styling"""
         css = """
         <style>
-            .thinkpy-error {
+            .think-error {
                 font-family: monospace;
                 white-space: pre;
                 background-color: #fff0f0;
@@ -174,9 +174,9 @@ class ThinkMagics(Magics):
         
         try:
             # Parse and execute the code
-            ast = parse_thinkpy(cell)
+            ast = parse_think(cell)
             if ast is None:
-                display(HTML(self.format_error_message("Failed to parse ThinkPy code")))
+                display(HTML(self.format_error_message("Failed to parse Think code")))
                 return
             
             interpreter = ThinkInterpreter(
@@ -199,5 +199,5 @@ class ThinkMagics(Magics):
             display(HTML(error_html))
 
 def load_ipython_extension(ipython):
-    """Register the ThinkPy magic when the extension is loaded."""
+    """Register the Think magic when the extension is loaded."""
     ipython.register_magics(ThinkMagics)

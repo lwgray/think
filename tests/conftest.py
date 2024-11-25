@@ -4,8 +4,8 @@ from think.interpreter import ThinkInterpreter
 
 @pytest.fixture
 def parser():
-    return ThinkPyParser()
+    return ThinkParser()
 
 @pytest.fixture
 def interpreter():
-    return ThinkPyInterpreter(explain_mode=False)
+    return ThinkInterpreter(explain_mode=False)
