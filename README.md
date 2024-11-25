@@ -1,6 +1,6 @@
-# ThinkPy
+# Think
 
-ThinkPy is an educational programming language designed to teach computational thinking through problem decomposition. It helps users break down complex problems into manageable parts while providing interactive feedback and explanations.
+Think is an educational programming language designed to teach computational thinking through problem decomposition. It helps users break down complex problems into manageable parts while providing interactive feedback and explanations.
 
 ## Features
 
@@ -14,7 +14,7 @@ ThinkPy is an educational programming language designed to teach computational t
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/thinkpy.git
+git clone https://github.com/yourusername/think.git
 cd thinkpy
 
 # Install the package
@@ -213,7 +213,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Support
 
 For support, feature requests, or bug reports:
-1. Check the [documentation](https://thinkpy.readthedocs.io/)
+1. Check the [documentation](https://think.readthedocs.io/)
 2. Open an issue on GitHub
 3. Contact the maintainers
 
