@@ -1,4 +1,4 @@
-class ThinkPyInterpreter:
+class ThinkInterpreter:
     def __init__(self, explain_mode=False, format_style="default", max_iterations_shown=5):
         self.state = {}  # Variable storage
         self.explain_mode = explain_mode
@@ -149,7 +149,7 @@ class ThinkPyInterpreter:
             print(f"{indent}[OUTPUT] {output}")
 
     def execute(self, ast):
-        """Execute a parsed ThinkPy program"""
+        """Execute a parsed Think program"""
         if self.explain_mode:
             program_header = "PROGRAM EXECUTION"
             if self.format_style == "detailed":
@@ -621,9 +621,9 @@ class ThinkPyInterpreter:
     
 
 if __name__ == "__main__":
-    from parser import parse_thinkpy
+    from parser import parse_think
     
-    # Example ThinkPy program
+    # Example Think program
     program = '''
         objective "Test"
         task "Math":
@@ -641,8 +641,8 @@ if __name__ == "__main__":
     # Try different formatting styles
     styles = ["default", "minimal", "detailed", "color", "markdown", "educational"]
         
-    ast = parse_thinkpy(program)
-    interpreter = ThinkPyInterpreter(explain_mode=True, format_style=styles[0])
+    ast = parse_think(program)
+    interpreter = ThinkInterpreter(explain_mode=True, format_style=styles[0])
     interpreter.execute(ast)
     
     # Print final state

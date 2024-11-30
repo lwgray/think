@@ -1,7 +1,7 @@
 import pytest
 import io
 import sys
-from thinkpy.interpreter import ThinkPyInterpreter
+from think.interpreter import ThinkInterpreter
 
 @pytest.fixture
 def capture_output():

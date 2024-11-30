@@ -1,5 +1,5 @@
-class ThinkPyError(Exception):
-    """Base class for ThinkPy errors"""
+class ThinkError(Exception):
+    """Base class for Think errors"""
     def __init__(self, message, line=None, column=None, context=None):
         self.message = message
         self.line = line
@@ -8,7 +8,7 @@ class ThinkPyError(Exception):
         super().__init__(self.format_message())
     
     def format_message(self):
-        msg = f"ThinkPy Error: {self.message}"
+        msg = f"Think Error: {self.message}"
         if self.line is not None:
             msg += f"\nLine: {self.line}"
         if self.column is not None:
@@ -17,7 +17,7 @@ class ThinkPyError(Exception):
             msg += f"\nContext: {self.context}"
         return msg
 
-class ThinkPyParserError(ThinkPyError):
+class ThinkParserError(ThinkError):
     """Error during parsing phase"""
     def __init__(self, message, line=None, column=None, token=None, source_snippet=None):
         self.token = token
@@ -33,7 +33,7 @@ class ThinkPyParserError(ThinkPyError):
             context.append(f"Source code:\n{self.source_snippet}")
         return "\n".join(context)
 
-class ThinkPyRuntimeError(ThinkPyError):
+class ThinkPyRuntimeError(ThinkError):
     """Error during program execution"""
     def __init__(self, message, task=None, step=None, variables=None):
         self.task = task
