@@ -14,12 +14,15 @@ Key Features:
 
 import ply.lex as lex
 import ply.yacc as yacc
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 import traceback
 try:
     from .errors import ThinkParserError
+    from .validator import ThinkValidator
 except ImportError:
     from errors import ThinkParserError
+    from validator import ThinkValidator
+
 
 
 class ThinkParser:
@@ -621,7 +624,7 @@ class ThinkParser:
         
         return '\n'.join(context_lines)
 
-    def parse(self, code: str) -> Dict[str, Any]:
+    def parse(self, code: str) -> dict[str, Any]:
         """
         Parse Think code with enhanced error reporting.
         
@@ -636,17 +639,33 @@ class ThinkParser:
         """
         try:
             self.source_code = code
-            return self.parser.parse(code, lexer=self.lexer)
-        except ThinkParserError:
+            ast = self.parser.parse(code, lexer=self.lexer)
+
+            # Validate the parsed AST
+            validator = ThinkValidator()
+            validator.validate_program(ast, code)
+            return ast
+        except ThinkParserError as e:
+            if not e.context:
+                validator = ThinkValidator()
+                e.context = validator.get_context_lines(e.line if e.line else 1)
             raise
         except Exception as e:
-            tb = traceback.format_exc()
-            raise ThinkParserError(f"Parsing failed: {str(e)}\n\nTraceback:\n{tb}")
+            if isinstance(e, ThinkError):
+                raise
+            line_num = 1
+            raise ThinkParserError(
+                message=str(e),
+                line=line_num,
+                column=1,
+                token="",
+                source_snippet=ThinkValidator()._get_context_lines(line_num)
+            )
 
 # Create a global parser instance
 _parser = ThinkParser()
 
-def parse_think(code: str) -> Dict[str, Any]:
+def parse_think(code: str) -> dict[str, Any]:
     """
     Convenience function to parse Think code using the global parser instance.
     
