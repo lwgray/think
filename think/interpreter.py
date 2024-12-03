@@ -1,13 +1,20 @@
+from .errors import ThinkRuntimeError, ThinkError
+from .validator import ThinkValidator
+
+
 class ThinkInterpreter:
-    def __init__(self, explain_mode=False, format_style="default", max_iterations_shown=5):
+    def __init__(self, explain_mode=False, format_style="default", max_iterations_shown=5, source_code=None):
         self.state = {}  # Variable storage
         self.explain_mode = explain_mode
         self.format_style = format_style
         self.indent_level = 0
         self.tasks = {}  # Store tasks for later execution
         self.subtasks = {}  # Store subtasks
+        self.source_code = source_code
         self.max_iterations_shown = max_iterations_shown
         self.iteration_count = 0
+        self.current_task = None
+        self.current_step = None
         
        # ANSI Color Code Constants
         self.colors = {
@@ -58,8 +65,6 @@ class ThinkInterpreter:
             'enumerate': enumerate,
         }
 
-        self.state['True'] = True
-        self.state['False'] = False
 
     def format_message(self, category, message):
         """Format explanatory messages based on the chosen style"""
@@ -150,20 +155,35 @@ class ThinkInterpreter:
 
     def execute(self, ast):
         """Execute a parsed Think program"""
-        if self.explain_mode:
-            program_header = "PROGRAM EXECUTION"
-            if self.format_style == "detailed":
-                separator = "=" * 60
-                print(f"\n{separator}\n{program_header}: {ast['objective']}\n{separator}\n")
-            else:
-                self.explain_print("PROGRAM", ast['objective'])
+        try:
+            validator = ThinkValidator()
+            validator.validate_program(ast, self.source_code)
+
+            if self.explain_mode:
+                program_header = "PROGRAM EXECUTION"
+                if self.format_style == "detailed":
+                    separator = "=" * 60
+                    print(f"\n{separator}\n{program_header}: {ast['objective']}\n{separator}\n")
+                else:
+                    self.explain_print("PROGRAM", ast['objective'])
+            
+            # First pass: register all tasks and subtasks
+            self.register_tasks(ast['tasks'])
+            
+            # Second pass: execute the run list
+            for task_name in ast['runs']:
+                self.execute_task(task_name)
         
-        # First pass: register all tasks and subtasks
-        self.register_tasks(ast['tasks'])
-        
-        # Second pass: execute the run list
-        for task_name in ast['runs']:
-            self.execute_task(task_name)
+        except ThinkError as e:
+            raise
+        except Exception as e:
+            # Convert other exceptions to ThinkPythonError
+            raise ThinkRuntimeError(
+                message=str(e),
+                task=self.current_task if hasattr(self, 'current_task') else None,
+                step=self.current_step if hasattr(self, 'current_step') else None,
+                variables=self.state if hasattr(self, 'state') else {}
+            )
 
     def register_tasks(self, tasks):
         """Register all tasks and subtasks for later execution"""
@@ -178,7 +198,14 @@ class ThinkInterpreter:
     def execute_task(self, task_name):
         """Execute a named task"""
         if task_name not in self.tasks:
-            raise RuntimeError(f"Task '{task_name}' not found")
+            raise ThinkRuntimeError(
+                message=f"Task '{task_name}' not found",
+                task=task_name,
+                step=None,
+                variables={
+                    "available_tasks": list(self.tasks.keys())
+                }
+            )
         
         task = self.tasks[task_name]
         self.explain_print("TASK", f"Executing {task_name}")
@@ -206,7 +233,14 @@ class ThinkInterpreter:
     def execute_subtask(self, subtask_name):
         """Execute a named subtask"""
         if subtask_name not in self.subtasks:
-            raise RuntimeError(f"Subtask '{subtask_name}' not found")
+            raise ThinkRuntimeError(
+                message=f"Subtask '{subtask_name}' not found",
+                task=self.current_task,
+                step="subtask execution",
+                variables={
+                    "attempted_subtask": subtask_name,
+                    "available_subtasks": list(self.subtasks.keys())
+                })
         
         subtask = self.subtasks[subtask_name]
         self.explain_print("SUBTASK", f"Executing {subtask_name}")
@@ -231,11 +265,19 @@ class ThinkInterpreter:
         
         elif stmt_type == 'enumerate_loop':
             if statement['iterable'] not in self.state:
-                raise RuntimeError(f"Undefined variable: {statement['iterable']}")
+                raise ThinkRuntimeError(f"Undefined variable: {statement['iterable']}")
             
             iterable = self.state[statement['iterable']]
             if not hasattr(iterable, '__iter__'):
-                raise RuntimeError(f"{statement['iterable']} is not a collection we can iterate over")
+                raise ThinkRuntimeError(message=f"{statement['iterable']} is not a collection we can iterate over",
+                    task=self.current_task,
+                    step=f"enumerate loop over {statement['iterable']}",
+                    variables={
+                        iterable_name: statement['iterable'],
+                        "iterable_type": self.state[statement['iterable']].__name__,
+                        "current_variables": self.state
+                    }
+                )
             
             if self.explain_mode:
                 self.explain_print("LOOP", f"Starting enumerate loop over {statement['iterable']}")
@@ -280,19 +322,23 @@ class ThinkInterpreter:
         # Handle direct values
         if isinstance(expr, (int, float, bool)):
             return expr
-            
-        # Handle string literals (already stripped of quotes by parser)
-        if isinstance(expr, str):
-            if expr in self.state:
-                return self.state[expr]
-            return expr
-            
+                
         # Handle complex expressions
         if isinstance(expr, dict):
             expr_type = expr.get('type')
             
+            # Handle string literals explicitly
+            if expr_type == 'string_literal':
+                return expr['value']
+                
             if expr_type == 'list':
-                return [self.evaluate_expression(item) for item in expr['items']]
+                evaluated_items = []
+                for item in expr['items']:
+                    value = self.evaluate_expression(item)
+                    if isinstance(value, dict) and value.get('type') == 'string_literal':
+                        value = value['value']
+                    evaluated_items.append(value)
+                return evaluated_items
             
             elif expr_type == 'dict':
                 return self.evaluate_dict(expr.get('entries', []))
@@ -300,6 +346,10 @@ class ThinkInterpreter:
             elif expr_type == 'index':
                 container = self.evaluate_expression(expr['container'])
                 key = self.evaluate_expression(expr['key'])
+                
+                # Convert string literal to string if it's being used as a key
+                if isinstance(key, dict) and key.get('type') == 'string_literal':
+                    key = key['value']
 
                 if isinstance(container, (dict, list)):
                     try:
@@ -307,15 +357,48 @@ class ThinkInterpreter:
                             key = int(key)
                         return container[key]
                     except (KeyError, IndexError, ValueError) as e:
-                        raise RuntimeError(f"Invalid index/key: {key} for container {container}")
+                        raise ThinkRuntimeError(
+                            message=f"Invalid index/key: {key} for container {container}",
+                            task=self.current_task,
+                            step=self.current_step,
+                            variables={
+                                "container_type": type(container).__name__,
+                                "container_value": container,
+                                "attempted_key": key,
+                                "valid_keys": list(container.keys()) if isinstance(container, dict) else f"0-{len(container)-1}"
+                            }
+                        )
                 else:
-                    raise RuntimeError(f"Cannot index into type: {type(container)}")                
+                    raise ThinkRuntimeError(
+                        message=f"Cannot index into type: {type(container)}",
+                        task=self.current_task,
+                        step=self.current_step,
+                        variables={
+                            "attempted_type": type(container).__name__,
+                            "indexable_types": ["list", "dict", "string"],
+                            "value_attempted": str(container)
+                        }
+                    )
             
             elif expr_type == 'operation':
                 return self.evaluate_operation(expr)
                 
             elif expr_type == 'function_call':
                 return self.execute_function_call(expr)
+                    
+        # Handle variable references (strings that aren't in dict form)
+        if isinstance(expr, str):
+            if expr in self.state:
+                return self.state[expr]
+            elif expr not in self.state:
+                raise ThinkRuntimeError(
+                    message=f"Undefined variable: {expr}",
+                    task=self.current_task,
+                    step=self.current_step,
+                    variables={
+                        "attempted_variable": expr,
+                        "defined_variables": list(self.state.keys())
+                    })
                 
         return expr
 
@@ -333,18 +416,46 @@ class ThinkInterpreter:
                 if isinstance(right, list):
                     return left + right
                 else:
-                    raise RuntimeError(f"Cannot concatenate list with non-list: {right}")
+                    raise ThinkRuntimeError(
+                        message=f"Cannot concatenate list with non-list",
+                        task=self.current_task,
+                        step=self.current_step,
+                        variables={
+                            "left_type": type(left).__name__,
+                            "right_type": type(right).__name__,
+                            "left_value": left,
+                            "right_value": right
+                        })
             elif isinstance(right, list):
                 if isinstance(left, list):
                     return left + right
                 else:
-                    raise RuntimeError(f"Cannot concatenate list with non-list: {left}")
+                    raise ThinkRuntimeError(
+                        message=f"Cannot concatenate list with non-list",
+                        task=self.current_task,
+                        step=self.current_step,
+                        variables={
+                            "operation": "concatenation",
+                            "left_type": type(left).__name__,
+                            "right_type": type(right).__name__,
+                            "left_value": left,
+                            "expected_type": "list"
+                        })
             return left + right
         elif op == '-': return float(left - right)
         elif op == '*': return float(left * right)
         elif op == '/': 
             if right == 0:
-                raise RuntimeError("Division by zero")
+                raise ThinkRuntimeError(
+                    message="Division by zero",
+                    task=self.current_task,
+                    step=self.current_step,
+                    variables={
+                        "operation": "division",
+                        "left_operand": left,
+                        "right_operand": right,
+                        "current_variables": self.state
+                    })
             return float(left) / float(right)
         elif op == '==': return left == right
         elif op == '!=': return left != right
@@ -353,7 +464,16 @@ class ThinkInterpreter:
         elif op == '<=': return left <= right
         elif op == '>=': return left >= right
         else:
-            raise RuntimeError(f"Unknown operator: {op}")
+            raise ThinkRuntimeError(
+                message=f"Unknown operator: {op}",
+                task=self.current_task,
+                step=self.current_step,
+                variables={
+                    "operation": "unknown",
+                    "left_operand": left,
+                    "right_operand": right,
+                    "supported_operators": ['+', '-', '*', '/', '==', '!=', '<', '>', '<=', '>='],
+                })
 
     def execute_function_call(self, func_call):
         """Execute a function call"""
@@ -364,10 +484,25 @@ class ThinkInterpreter:
         # Special handling for range function
         if func_name == 'range':
             if not args:
-                raise RuntimeError("range() function requires at least one argument")
+                raise ThinkRuntimeError(message="range() function requires at least one argument",
+                                        task=self.current_task,
+                                        step=self.current_step,
+                                        variables={
+                                            "provided_args": len(args),
+                                            "minimum_args": 1,
+                                            "function": "range"
+                                        })
             end = args[0]
             if not isinstance(end, (int, float)):
-                raise RuntimeError(f"range() argument must be a number, got {type(end)}")
+                raise ThinkRuntimeError(
+                    message=f"range() argument must be a number",
+                    task=self.current_task,
+                    step=self.current_step,
+                    variables={
+                        "provided_type": type(end).__name__,
+                        "provided_value": end,
+                        "expected_type": "number (int or float)"
+                    })
             return range(int(end))
         
         # Check for built-in functions
@@ -383,7 +518,15 @@ class ThinkInterpreter:
         if converted_name in self.subtasks:
             return self.execute_subtask(converted_name)
         
-        raise RuntimeError(f"Unknown function: {func_name}")
+        raise ThinkRuntimeError(
+            message=f"Unknown function: {func_name}",
+            task=self.current_task,
+            step=self.current_step,
+            variables={
+                "attempted_function": func_name,
+                "available_functions": list(self.builtins.keys()) + list(self.subtasks.keys()),
+                "current_variables": self.state
+            })
 
     def execute_decide(self, decide_stmt):
         """Execute a decide (if/else) statement with educational explanations"""
@@ -459,19 +602,34 @@ class ThinkInterpreter:
         if isinstance(iterable_spec, dict) and iterable_spec['type'] == 'enumerate':
             # Handle enumerate case
             if iterable_spec['iterable'] not in self.state:
-                raise RuntimeError(f"Undefined variable: {iterable_spec['iterable']}")
+                raise ThinkRuntimeError(f"Undefined variable: {iterable_spec['iterable']}")
             
             iterable = enumerate(self.state[iterable_spec['iterable']])
             value_var = iterable_spec['value_var']
         else:
             # Handle normal iteration
             if iterable_spec not in self.state:
-                raise RuntimeError(f"Undefined variable: {iterable_spec}")
+                raise ThinkRuntimeError(
+                    message=f"Undefined variable in for loop: {iterable_spec}",
+                    task=self.current_task,
+                    step="for loop initialization",
+                    variables={
+                        "attempted_variable": iterable_spec,
+                        "defined_variables": list(self.state.keys())
+                    })
             
             iterable = self.state[iterable_spec]
             
         if not hasattr(iterable, '__iter__'):
-            raise RuntimeError(f"{iterable_spec} is not a collection we can iterate over")
+            raise ThinkRuntimeError(message=f"{iterable_spec} is not a collection we can iterate over",
+                                    task=self.current_task,
+                                    step="for loop iteration",
+                                    variables={
+                                        "iterable_name": iterable_spec,
+                                        "iterable_type": type(self.state.get(iterable_spec)).__name__,
+                                        "iterable_value": self.state.get(iterable_spec),
+                                        "supported_types": ["list", "dict", "string", "range"]
+                                    })
         
         if self.explain_mode:
             self.explain_print("LOOP", f"Starting a loop that will go through each item in {iterable_spec}")
@@ -521,11 +679,27 @@ class ThinkInterpreter:
         iterable_name = loop_stmt['iterable']
 
         if iterable_name not in self.state:
-            raise RuntimeError(f"Undefined variable: {iterable_name}")
+            raise ThinkRuntimeError(
+                message=f"Undefined variable in enumerate: {iterable_name}",
+                task=self.current_task,
+                step="enumerate loop initialization",
+                variables={
+                    "attempted_variable": iterable_name,
+                    "defined_variables": list(self.state.keys())
+                })
         
         iterable = self.state[iterable_name]
         if not hasattr(iterable, '__iter__'):
-            raise RuntimeError(f"{iterable_name} is not a collection we can enumerate")
+            raise ThinkRuntimeError(
+                message=f"{iterable_name} is not a collection we can enumerate",
+                task=self.current_task,
+                step="enumerate loop",
+                variables={
+                    "iterable_name": iterable_name,
+                    "iterable_type": type(self.state.get(iterable_name)).__name__,
+                    "supported_types": ["list", "dict", "string"],
+                    "current_value": self.state.get(iterable_name)
+                })
         
         if self.explain_mode:
             self.explain_print("LOOP", f"Starting an enumerate loop over {iterable_name}")
@@ -603,6 +777,13 @@ class ThinkInterpreter:
         for entry in entries:
             key = self.evaluate_expression(entry['key'])
             value = self.evaluate_expression(entry['value'])
+            
+            # Extract string value if it's a string_literal dict (for both key and value)
+            if isinstance(key, dict) and key.get('type') == 'string_literal':
+                key = key['value']
+            if isinstance(value, dict) and value.get('type') == 'string_literal':
+                value = value['value']
+                
             result[key] = value
         return result
     
@@ -615,9 +796,25 @@ class ThinkInterpreter:
             try:
                 return container[key]
             except (KeyError, IndexError) as e:
-                raise RuntimeError(f"Invalid index/key: {key}")
+                raise ThinkRuntimeError(
+                    message=f"Invalid index/key: {key}",
+                    task=self.current_task,
+                    step=self.current_step,
+                    variables={
+                        "attempted_key": key,
+                        "container_type": type(container).__name__,
+                        "valid_range": f"0-{len(container)-1}" if isinstance(container, (list, str)) else list(container.keys())
+                    })
         else:
-            raise RuntimeError(f"Cannot index into type: {type(container)}")
+            raise ThinkRuntimeError(
+                message=f"Cannot index into type: {type(container).__name__}",
+                task=self.current_task,
+                step=self.current_step,
+                variables={
+                    "container_type": type(container).__name__,
+                    "container_value": str(container),
+                    "indexable_types": ["list", "dict", "string"]
+                })
     
 
 if __name__ == "__main__":

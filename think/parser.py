@@ -14,12 +14,15 @@ Key Features:
 
 import ply.lex as lex
 import ply.yacc as yacc
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 import traceback
 try:
-    from .errors import ThinkParserError
+    from .errors import ThinkParserError, ThinkError
+    from .validator import ThinkValidator
 except ImportError:
-    from errors import ThinkParserError
+    from errors import ThinkParserError, ThinkError
+    from validator import ThinkValidator
+
 
 
 class ThinkParser:
@@ -100,14 +103,13 @@ class ThinkParser:
         return t
 
     def t_STRING(self, t: lex.LexToken) -> lex.LexToken:
-        r'"[^"]*"'
-        t.value = t.value[1:-1]  # Remove quotes
+        r'(\"[^\"]*\")|(\'[^\']*\')|(\"{3}[^\"]*\"{3})|(\'{3}[^\']*\'{3})'
+        # Remove outer quotes while preserving inner content
+        if t.value.startswith('"""') or t.value.startswith("'''"):
+            t.value = {'type': 'string_literal', 'value': t.value[3:-3]}
+        else:
+            t.value = {'type': 'string_literal', 'value': t.value[1:-1]}
         return t
-
-    # def t_FLOAT(self, t: lex.LexToken) -> lex.LexToken:
-    #     r'-?\d*\.\d+([eE][-+]?\d+)?|-?\d+[eE][-+]?\d+'
-    #     t.value = float(t.value)
-    #     return t 
 
     def t_FLOAT(self, t: lex.LexToken) -> lex.LexToken:
         r'-?\d*\.\d+([eE][-+]?\d+)?|-?\d+[eE][-+]?\d+'
@@ -167,7 +169,8 @@ class ThinkParser:
         """
         objective : OBJECTIVE STRING
         """
-        p[0] = p[2]
+        obj_value = p[2]['value'] if isinstance(p[2], dict) and p[2].get('type') == 'string_literal' else p[2]
+        p[0] = obj_value
 
     def p_task_list(self, p):
         """
@@ -183,7 +186,8 @@ class ThinkParser:
         """
         task : TASK STRING COLON step_or_subtask_list
         """
-        p[0] = {'name': p[2], 'body': p[4]}
+        task_name = p[2]['value'] if isinstance(p[2], dict) and p[2].get('type') == 'string_literal' else p[2]
+        p[0] = {'name': task_name, 'body': p[4]}
 
     def p_step_or_subtask_list(self, p):
         """
@@ -201,13 +205,15 @@ class ThinkParser:
         """
         step : STEP STRING COLON statement_list
         """
-        p[0] = {'type': 'step', 'name': p[2], 'statements': p[4]}
+        step_name = p[2]['value'] if isinstance(p[2], dict) and p[2].get('type') == 'string_literal' else p[2]
+        p[0] = {'type': 'step', 'name': step_name, 'statements': p[4]}
 
     def p_subtask(self, p):
         """
         subtask : SUBTASK STRING COLON statement_list
         """
-        p[0] = {'type': 'subtask', 'name': p[2], 'statements': p[4]}
+        subtask_name = p[2]['value'] if isinstance(p[2], dict) and p[2].get('type') == 'string_literal' else p[2]
+        p[0] = {'type': 'subtask', 'name': subtask_name, 'statements': p[4]}
 
     def p_statement(self, p):
         """
@@ -478,7 +484,12 @@ class ThinkParser:
             | index_expression
         """
         if len(p) == 2:
-            p[0] = p[1]
+            if isinstance(p[1], str) and hasattr(p[1], 'type'):
+                p[0] = p[1]
+            elif p.slice[1].type == 'STRING':
+                p[0] = {'type': 'string_literal', 'value': p[1]}
+            else:
+                p[0] = p[1]
         elif len(p) == 3 and p[1] == '-':
             p[0] = -p[2]
         else:
@@ -586,7 +597,8 @@ class ThinkParser:
         """
         run_statement : RUN STRING
         """
-        p[0] = p[2]
+        run_name = p[2]['value'] if isinstance(p[2], dict) and p[2].get('type') == 'string_literal' else p[2]
+        p[0] = run_name
 
     def p_error(self, p):
         """Enhanced parser error handler"""
@@ -621,7 +633,7 @@ class ThinkParser:
         
         return '\n'.join(context_lines)
 
-    def parse(self, code: str) -> Dict[str, Any]:
+    def parse(self, code: str) -> dict[str, Any]:
         """
         Parse Think code with enhanced error reporting.
         
@@ -636,17 +648,33 @@ class ThinkParser:
         """
         try:
             self.source_code = code
-            return self.parser.parse(code, lexer=self.lexer)
-        except ThinkParserError:
+            ast = self.parser.parse(code, lexer=self.lexer)
+
+            # Validate the parsed AST
+            validator = ThinkValidator()
+            validator.validate_program(ast, code)
+            return ast
+        except ThinkParserError as e:
+            if not e.context:
+                validator = ThinkValidator()
+                e.context = validator.get_context_lines(e.line if e.line else 1)
             raise
         except Exception as e:
-            tb = traceback.format_exc()
-            raise ThinkParserError(f"Parsing failed: {str(e)}\n\nTraceback:\n{tb}")
+            if isinstance(e, ThinkError):
+                raise
+            line_num = 1
+            raise ThinkParserError(
+                message=str(e),
+                line=line_num,
+                column=1,
+                token="",
+                source_snippet=ThinkValidator()._get_context_lines(line_num)
+            )
 
 # Create a global parser instance
 _parser = ThinkParser()
 
-def parse_think(code: str) -> Dict[str, Any]:
+def parse_think(code: str) -> dict[str, Any]:
     """
     Convenience function to parse Think code using the global parser instance.
     

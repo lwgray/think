@@ -33,7 +33,7 @@ class ThinkParserError(ThinkError):
             context.append(f"Source code:\n{self.source_snippet}")
         return "\n".join(context)
 
-class ThinkPyRuntimeError(ThinkError):
+class ThinkRuntimeError(ThinkError):
     """Error during program execution"""
     def __init__(self, message, task=None, step=None, variables=None):
         self.task = task

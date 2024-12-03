@@ -10,7 +10,7 @@ class TestBasicLexing:
         
         tokens = self._get_tokens(parser, code)
         assert ('OBJECTIVE', 'objective') in tokens
-        assert ('STRING', 'Test') in tokens
+        assert ('STRING', {'type': 'string_literal', 'value': 'Test'}) in tokens
         assert ('TASK', 'task') in tokens
         assert ('STEP', 'step') in tokens
         assert ('NUMBER', 42) in tokens
