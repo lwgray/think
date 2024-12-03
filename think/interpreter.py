@@ -65,8 +65,6 @@ class ThinkInterpreter:
             'enumerate': enumerate,
         }
 
-       #self.state['True'] = True
-       #self.state['False'] = False
 
     def format_message(self, category, message):
         """Format explanatory messages based on the chosen style"""
@@ -324,29 +322,23 @@ class ThinkInterpreter:
         # Handle direct values
         if isinstance(expr, (int, float, bool)):
             return expr
-            
-        # Handle string literals (already stripped of quotes by parser)
-        if isinstance(expr, str):
-            if expr in self.state:
-                return self.state[expr]
-            elif expr not in self.state:
-                raise ThinkRuntimeError(
-                            message=f"Undefined variable: {expr}",
-                            task=self.current_task,
-                            step=self.current_step,
-                            variables={
-                                "attempted_variable": expr,
-                                "defined_variables": list(self.state.keys())
-                            })
-            else:
-                return expr
-            
+                
         # Handle complex expressions
         if isinstance(expr, dict):
             expr_type = expr.get('type')
             
+            # Handle string literals explicitly
+            if expr_type == 'string_literal':
+                return expr['value']
+                
             if expr_type == 'list':
-                return [self.evaluate_expression(item) for item in expr['items']]
+                evaluated_items = []
+                for item in expr['items']:
+                    value = self.evaluate_expression(item)
+                    if isinstance(value, dict) and value.get('type') == 'string_literal':
+                        value = value['value']
+                    evaluated_items.append(value)
+                return evaluated_items
             
             elif expr_type == 'dict':
                 return self.evaluate_dict(expr.get('entries', []))
@@ -354,6 +346,10 @@ class ThinkInterpreter:
             elif expr_type == 'index':
                 container = self.evaluate_expression(expr['container'])
                 key = self.evaluate_expression(expr['key'])
+                
+                # Convert string literal to string if it's being used as a key
+                if isinstance(key, dict) and key.get('type') == 'string_literal':
+                    key = key['value']
 
                 if isinstance(container, (dict, list)):
                     try:
@@ -361,16 +357,17 @@ class ThinkInterpreter:
                             key = int(key)
                         return container[key]
                     except (KeyError, IndexError, ValueError) as e:
-                        raise ThinkRuntimeError(message=f"Invalid index/key: {key} for container {container}",
-                                                task=self.current_task,
-                                                step=self.current_step,
-                                                variables={
-                                                    "container_type": type(container).__name__,
-                                                    "container_value": container,
-                                                    "attempted_key": key,
-                                                    "valid_keys" : list(container.keys()) if isinstance(container, dict) else f"0-{len(container)-1}"
-                                                }
-                                            )
+                        raise ThinkRuntimeError(
+                            message=f"Invalid index/key: {key} for container {container}",
+                            task=self.current_task,
+                            step=self.current_step,
+                            variables={
+                                "container_type": type(container).__name__,
+                                "container_value": container,
+                                "attempted_key": key,
+                                "valid_keys": list(container.keys()) if isinstance(container, dict) else f"0-{len(container)-1}"
+                            }
+                        )
                 else:
                     raise ThinkRuntimeError(
                         message=f"Cannot index into type: {type(container)}",
@@ -388,6 +385,20 @@ class ThinkInterpreter:
                 
             elif expr_type == 'function_call':
                 return self.execute_function_call(expr)
+                    
+        # Handle variable references (strings that aren't in dict form)
+        if isinstance(expr, str):
+            if expr in self.state:
+                return self.state[expr]
+            elif expr not in self.state:
+                raise ThinkRuntimeError(
+                    message=f"Undefined variable: {expr}",
+                    task=self.current_task,
+                    step=self.current_step,
+                    variables={
+                        "attempted_variable": expr,
+                        "defined_variables": list(self.state.keys())
+                    })
                 
         return expr
 
@@ -766,6 +777,13 @@ class ThinkInterpreter:
         for entry in entries:
             key = self.evaluate_expression(entry['key'])
             value = self.evaluate_expression(entry['value'])
+            
+            # Extract string value if it's a string_literal dict (for both key and value)
+            if isinstance(key, dict) and key.get('type') == 'string_literal':
+                key = key['value']
+            if isinstance(value, dict) and value.get('type') == 'string_literal':
+                value = value['value']
+                
             result[key] = value
         return result
     

@@ -93,7 +93,7 @@ class TestControlFlow:
         interpreter.execute(ast)
         
         output = capture_output.getvalue()
-        assert interpreter.state['result'] == "positive"
+        assert interpreter.state['result']['value'] == "positive"
 
     def test_loop_execution(self, interpreter, parser, capture_output):
         code = '''objective "Test loop execution"
