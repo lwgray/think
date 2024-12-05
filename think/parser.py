@@ -98,7 +98,19 @@ class ThinkParser:
         self.source_code = ""
 
     def t_IDENTIFIER(self, t: lex.LexToken) -> lex.LexToken:
-        r"""[a-zA-Z_][a-zA-Z0-9_]*"""
+        r'''[a-zA-Z_][a-zA-Z0-9_]*'''
+        """Match identifiers starting with a letter or underscore, followed by letters, numbers or underscores.
+    
+        This method matches tokens that:
+        * Start with a letter (``[a-zA-Z]``) or underscore (``_``)
+        * Can be followed by any number of letters, numbers (``[a-zA-Z0-9]``) or underscores (``_``)
+        
+        Args:
+            t: The lexer token
+            
+        Returns:
+            The processed token with type set to either a reserved word or IDENTIFIER
+        """
         t.type = self.reserved.get(t.value, 'IDENTIFIER')
         return t
 
