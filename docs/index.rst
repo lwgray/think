@@ -96,19 +96,18 @@ Enable explanation mode using the --explain flag:
    
    run "Process Numbers"
 
-.. code-block:: python
+Example Output::
 
     [PROGRAM] Calculate average
-[TASK] Executing Process Numbers
-  [STEP] Executing Initialize data
-    [VARIABLE] Assigned [1, 2, 3, 4, 5] to numbers
-  [SUBTASK] Executing Calculate Mean
-    [VARIABLE] Assigned 15 to total
-  [STEP] Executing Print result
-    [SUBTASK] Executing Calculate Mean
-      [VARIABLE] Assigned 15 to total
-    [OUTPUT] Mean: 3
-
+      [TASK] Executing Process Numbers
+        [STEP] Executing Initialize data
+          [VARIABLE] Assigned [1, 2, 3, 4, 5] to numbers
+        [SUBTASK] Executing Calculate Mean
+          [VARIABLE] Assigned 15 to total
+        [STEP] Executing Print result
+          [SUBTASK] Executing Calculate Mean
+            [VARIABLE] Assigned 15 to total
+          [OUTPUT] Mean: 3
 
 Available Styles
 ^^^^^^^^^^^^^^^^
@@ -127,7 +126,7 @@ Example with style:
 .. code-block:: python
 
    %%think --explain --style educational
-    objective "Calculate average"
+   objective "Calculate average"
    
    task "Process Numbers":
        step "Initialize data":
@@ -142,17 +141,18 @@ Example with style:
    
    run "Process Numbers"
 
-   • Calculate average
-• Executing Process Numbers
-  • Executing Initialize data
-    📝 Assigned [1, 2, 3, 4, 5] to numbers
-  • Executing Calculate Mean
-    📝 Assigned 15 to total
-  • Executing Print result
-    • Executing Calculate Mean
-      📝 Assigned 15 to total
-    📤 Output: Mean: 3
+Example Output::
 
+    • Calculate average
+    • Executing Process Numbers
+      • Executing Initialize data
+        📝 Assigned [1, 2, 3, 4, 5] to numbers
+      • Executing Calculate Mean
+        📝 Assigned 15 to total
+      • Executing Print result
+        • Executing Calculate Mean
+          📝 Assigned 15 to total
+        📤 Output: Mean: 3
 
 Magic Command Options
 ^^^^^^^^^^^^^^^^^^^^^

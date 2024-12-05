@@ -200,7 +200,7 @@ Here's a complete example showing multiple features:
            return avg
        
        subtask "Determine Performance":
-           avg = Calculate_Average()
+           avg = calculate_average()
            decide:
                if avg >= 90 then:
                    return "Excellent"
@@ -210,7 +210,7 @@ Here's a complete example showing multiple features:
                    return "Needs Improvement"
            
        step "Show Results":
-           performance = Determine_Performance()
+           performance = determine_performance()
            print("Class performance:", performance)
 
    run "Process Grades"
@@ -244,8 +244,8 @@ Another Example: Temperature Analysis
            return highest - lowest
        
        step "Show Analysis":
-           avg = Find_Average()
-           range = Find_Range()
+           avg = find_average()
+           range = find_range()
            print("Average temperature:", avg)
            print("Temperature range:", range)
    
@@ -281,7 +281,7 @@ Control Flow
 
 Operators
 ^^^^^^^^^
-* Arithmetic: +, -, *, /
+* Arithmetic: +, -, \*, /
 * Comparison: ==, !=, >, <, >=, <=
 * Assignment: =
 
