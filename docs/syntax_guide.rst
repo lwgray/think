@@ -149,7 +149,7 @@ Dictionaries
    }
 
 Built-in Functions
----------------
+------------------
 
 Think provides several built-in functions:
 
@@ -216,7 +216,7 @@ Here's a complete example showing multiple features:
    run "Process Grades"
 
 Another Example: Temperature Analysis
---------------------------------
+-------------------------------------
 
 .. code-block:: python
 
