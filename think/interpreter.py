@@ -119,7 +119,9 @@ class ThinkInterpreter:
         # Convert all arguments to their string representation
         str_args = []
         for arg in args:
-            if isinstance(arg, bool):
+            if isinstance(arg, dict) and arg.get('type') == 'string_literal':
+                str_args.append(arg['value'])
+            elif isinstance(arg, bool):
                 str_args.append(str(arg))
             elif isinstance(arg, float):
                 # Format floats to avoid scientific notation for small numbers
@@ -260,8 +262,11 @@ class ThinkInterpreter:
         
         if stmt_type == 'assignment':
             value = self.evaluate_expression(statement['value'])
+            if isinstance(value, dict) and value.get('type') == 'string_literal':
+                value = value['value']
             self.state[statement['variable']] = value
-            self.explain_print("VARIABLE", f"Assigned {value} to {statement['variable']}")
+            display_value = f'"{value}"' if isinstance(value, str) else str(value)
+            self.explain_print("VARIABLE", f"Assigned {display_value} to {statement['variable']}")
         
         elif stmt_type == 'enumerate_loop':
             if statement['iterable'] not in self.state:
@@ -408,6 +413,12 @@ class ThinkInterpreter:
         right = self.evaluate_expression(operation['right'])
         op = operation['operator']
         
+         # Handle string literals - extract actual string values
+        if isinstance(left, dict) and left.get('type') == 'string_literal':
+            left = left['value']
+        if isinstance(right, dict) and right.get('type') == 'string_literal':
+            right = right['value']
+
         if op == '+': 
             # Handle string concatenation
             if isinstance(left, str) or isinstance(right, str):
