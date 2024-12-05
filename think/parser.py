@@ -98,12 +98,12 @@ class ThinkParser:
         self.source_code = ""
 
     def t_IDENTIFIER(self, t: lex.LexToken) -> lex.LexToken:
-        r'[a-zA-Z_][a-zA-Z0-9_]*'
+        r"""[a-zA-Z_][a-zA-Z0-9_]*"""
         t.type = self.reserved.get(t.value, 'IDENTIFIER')
         return t
 
     def t_STRING(self, t: lex.LexToken) -> lex.LexToken:
-        r'(\"[^\"]*\")|(\'[^\']*\')|(\"{3}[^\"]*\"{3})|(\'{3}[^\']*\'{3})'
+        r"""(\"[^\"]*\")|(\'[^\']*\')|(\"{3}[^\"]*\"{3})|(\'{3}[^\']*\'{3})"""
         # Remove outer quotes while preserving inner content
         if t.value.startswith('"""') or t.value.startswith("'''"):
             t.value = {'type': 'string_literal', 'value': t.value[3:-3]}
@@ -112,22 +112,22 @@ class ThinkParser:
         return t
 
     def t_FLOAT(self, t: lex.LexToken) -> lex.LexToken:
-        r'-?\d*\.\d+([eE][-+]?\d+)?|-?\d+[eE][-+]?\d+'
+        r"""-?\d*\.\d+([eE][-+]?\d+)?|-?\d+[eE][-+]?\d+"""
         t.value = float(t.value)
         return t 
     
     def t_NUMBER(self, t: lex.LexToken) -> lex.LexToken:
-        r'-?\d+'
+        r"""-?\d+"""
         t.value = int(t.value)
         return t
     
     def t_BOOL(self, t: lex.LexToken) -> lex.LexToken:
-        r'True|False'
+        r"""True|False"""
         t.value = True if t.value == 'True' else False
         return t
     
     def t_NEWLINE(self, t: lex.LexToken) -> lex.LexToken:
-        r'\n+'
+        r"""\n+"""
         t.lexer.lineno += len(t.value)
         return t
 
