@@ -166,4 +166,3 @@ Magic Command Options
    style_guide
 
 For more details about the language syntax, see :doc:`syntax_guide`.
-See the :ref:`style-guide` for coding conventions.
