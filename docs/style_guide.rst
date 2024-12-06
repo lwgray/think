@@ -276,6 +276,6 @@ Best Practices
     - Use meaningful names
 
 Remember
--------
+--------
 
 The primary goal of these guidelines is to make Think code more readable, maintainable, and understandable. When in doubt, choose clarity over convenience.
