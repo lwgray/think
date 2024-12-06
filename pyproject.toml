@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "think-lang"
-version = "0.1.9"
+version = "0.1.9.rc1"
 description = "Think - A language for learning computational thinking"
 readme = "README.md"
 authors = [

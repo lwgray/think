@@ -213,7 +213,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Support
 
 For support, feature requests, or bug reports:
-1. Check the [documentation](https://think.readthedocs.io/)
+1. Check the [documentation](https://think-lang.readthedocs.io/)
 2. Open an issue on GitHub
 3. Contact the maintainers
 
