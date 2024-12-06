@@ -4,11 +4,6 @@ Think: A Language for Learning Computational Thinking
 
 Think is an educational programming language designed to teach computational thinking through explicit problem decomposition. It helps users break down complex problems into manageable parts while providing interactive feedback.
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   syntax_guide
 
 Installation
 ------------
@@ -31,6 +26,9 @@ Quick Example
        subtask "Calculate Average":
            total = sum(scores)
            return total / len(scores)
+
+       step "Print result":
+            print("Average:", calculate_average(scores))
 
    run "Process Grades"
 
@@ -159,5 +157,11 @@ Magic Command Options
 
 * --explain: Enable explanation mode
 * --style STYLE: Set output style
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   syntax_guide
 
 For more details about the language syntax, see :doc:`syntax_guide`.
