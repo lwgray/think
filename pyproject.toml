@@ -4,7 +4,7 @@ requires = ["setuptools>=64.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "think"
+name = "think-lang"
 version = "0.1.9"
 description = "Think - A language for learning computational thinking"
 readme = "README.md"
@@ -26,8 +26,8 @@ dependencies = [
 requires-python = ">=3.7"
 
 [project.urls]
-Homepage = "https://github.com/lwgray/think"
-Documentation = "https://thinkpy.readthedocs.io/"
+Homepage = "https://think-lang.org"
+Documentation = "https://think-lang.readthedocs.io/"
 Repository = "https://github.com/lwgray/think.git"
 Issues = "https://github.com/lwgray/think/issues"
 
