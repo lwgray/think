@@ -41,7 +41,7 @@ class ThinkParser:
         'GREATER', 'LESS', 'EQUALS_EQUALS', 'BOOL',
         'ELIF', 'FLOAT', 'GREATER_EQUALS', 'LESS_EQUALS',
         'NOT_EQUALS', 'COLON', 'UNDERSCORE', 'RANGE',
-        'ENUMERATE', 'NEWLINE', 'END'
+        'ENUMERATE', 'END'
     )
 
     # Reserved words mapping
@@ -414,28 +414,73 @@ class ThinkParser:
         ('right', 'UMINUS'),
         ('left', 'TIMES', 'DIVIDE'),
         ('left', 'PLUS', 'MINUS'),
-        ('left', 'GREATER', 'LESS', 'GREATER_EQUALS', 'LESS_EQUALS'),
-        ('EQUALS_EQUALS', 'NOT_EQUALS')
+        ('left', 'GREATER', 'LESS', 'GREATER_EQUALS',
+         'LESS_EQUALS', 'EQUALS_EQUALS', 'NOT_EQUALS'),
     )
 
     def p_expression(self, p):
         """
         expression : arithmetic_expr
                 | comparison_expr
+                | primary_expr
+        """
+        p[0] = p[1]
+
+    def p_primary_expr(self, p):
+        """
+        primary_expr : IDENTIFIER
+                    | literal
+                    | array_access
+                    | function_call
+                    | LPAREN expression RPAREN
+        """
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            p[0] = p[2]
+
+    def p_literal(self, p):
+        """
+        literal : number
+                | STRING
+                | BOOL
+                | list
                 | dict_literal
         """
         p[0] = p[1]
 
-    def p_arithmetic_expr(self, p):
+    def p_number(self, p):
         """
-        arithmetic_expr : term
-                    | arithmetic_expr PLUS term
-                    | arithmetic_expr MINUS term
-                    | arithmetic_expr TIMES term
-                    | arithmetic_expr DIVIDE term
+        number : NUMBER
+                | FLOAT
+                | MINUS NUMBER
+                | MINUS FLOAT
         """
         if len(p) == 2:
             p[0] = p[1]
+        else:
+            p[0] = -p[2]
+
+    def p_array_access(self, p):
+        """
+        array_access : primary_expr LBRACKET expression RBRACKET
+        """
+        p[0] = {'type': 'index', 'container': p[1], 'key': p[3]}
+
+
+    def p_arithmetic_expr(self, p):
+        """
+        arithmetic_expr : primary_expr
+                    | arithmetic_expr PLUS arithmetic_expr
+                    | arithmetic_expr MINUS arithmetic_expr
+                    | arithmetic_expr TIMES arithmetic_expr
+                    | arithmetic_expr DIVIDE arithmetic_expr
+                    | MINUS arithmetic_expr %prec UMINUS
+        """
+        if len(p) == 2:
+            p[0] = p[1]
+        elif len(p) == 3:
+            p[0] = {'type': 'operation', 'operator': 'uminus', 'operand': p[2]}
         else:
             p[0] = {'type': 'operation', 'left': p[1], 'operator': p[2], 'right': p[3]}
 
@@ -603,19 +648,24 @@ class ThinkParser:
     def p_error(self, p):
         """Enhanced parser error handler"""
         if p:
-            print(f"DEBUG: Syntax error at token type: {p.type}")
-            print(f"DEBUG: Token value: {p.value}")
-            print(f"DEBUG: Position: {p.lexpos}")
             line_num = self._find_line_number(p.lexpos)
             col_num = self._find_column_position(p.lexpos)
             source_context = self.get_source_context(p.lexpos)
             
             raise ThinkParserError(
-                message=f"Syntax error at token {p.type}",
+                message=f"Syntax error at {p.type} token: '{p.value}'",
                 line=line_num,
                 column=col_num,
                 token=p.value,
                 source_snippet=source_context
+            )
+        else:
+            raise ThinkParserError(
+                message="Syntax error at end of input",
+                line=len(self.source_code.splitlines()),
+                column=0,
+                token=None,
+                source_snippet=self.get_source_context(len(self.source_code))
             )
         
     def get_source_context(self, position, window=2):
