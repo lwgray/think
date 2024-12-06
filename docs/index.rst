@@ -159,9 +159,10 @@ Magic Command Options
 * --style STYLE: Set output style
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    syntax_guide
+   style_guide
 
 For more details about the language syntax, see :doc:`syntax_guide`.
