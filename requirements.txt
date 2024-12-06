@@ -4,10 +4,6 @@ ply>=3.11
 ipython>=7.0.0
 jupyter>=1.0.0
 
-# requirements-dev.txt
-# Additional dependencies for development
--r requirements.txt  # Include all production dependencies
-
 # Testing
 pytest>=7.0.0
 pytest-cov>=4.0.0

@@ -278,7 +278,7 @@ class ThinkInterpreter:
                     task=self.current_task,
                     step=f"enumerate loop over {statement['iterable']}",
                     variables={
-                        iterable_name: statement['iterable'],
+                        "iterable_name": statement['iterable'],
                         "iterable_type": self.state[statement['iterable']].__name__,
                         "current_variables": self.state
                     }
