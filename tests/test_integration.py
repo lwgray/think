@@ -186,3 +186,112 @@ class TestFunctions:
 
         assert 4 == interpreter.state['result'][0]
         assert 5 == interpreter.state['result'][1]
+
+class TestExpressionEvaluation:
+    def test_nested_unary_operations(self, interpreter, parser, capture_output):
+        """Test handling of nested unary minus operations."""
+        code = '''
+        objective "Test nested unary operations"
+        task "UnaryOps":
+            step "Calculate":
+                double_neg = - -42
+                triple_neg = - - -17
+                mixed = - -3.14
+                print(double_neg)
+                print(triple_neg)
+                print(mixed)
+        run "UnaryOps"'''
+        
+        ast = parser.parse(code)
+        interpreter.execute(ast)
+        
+        assert interpreter.state['double_neg'] == 42
+        assert interpreter.state['triple_neg'] == -17
+        assert pytest.approx(interpreter.state['mixed']) == 3.14
+
+    def test_complex_nested_expressions(self, interpreter, parser, capture_output):
+        """Test evaluation of complex nested expressions."""
+        code = '''
+        objective "Test complex expressions"
+        task "ComplexExpr":
+            step "Calculate":
+                a = 5
+                b = 3
+                c = 8
+                d = 2
+                nested1 = (a + b) * (c - d)
+                nested2 = ((a * b) + c) / (d + 1)
+                print(nested1)
+                print(nested2)
+        run "ComplexExpr"'''
+        
+        ast = parser.parse(code)
+        interpreter.execute(ast)
+        
+        # (5 + 3) * (8 - 2) = 8 * 6 = 48
+        assert interpreter.state['nested1'] == 48
+        # ((5 * 3) + 8) / (2 + 1) = (15 + 8) / 3 = 23/3
+        assert pytest.approx(interpreter.state['nested2']) == 7.666666666666667
+
+    def test_parenthesized_expressions(self, interpreter, parser, capture_output):
+        """Test evaluation of expressions with explicit parentheses."""
+        code = '''
+        objective "Test parenthesized expressions"
+        task "ParenExpr":
+            step "Calculate":
+                simple = 2 * (3 + 4)
+                complex = (1 + 2) * (3 - 4) / (5 + 6)
+                nested = (((1 + 2) * 3) - 4)
+                print(simple)
+                print(complex)
+                print(nested)
+        run "ParenExpr"'''
+        
+        ast = parser.parse(code)
+        interpreter.execute(ast)
+        
+        # 2 * (3 + 4) = 2 * 7 = 14
+        assert interpreter.state['simple'] == 14
+        # (1 + 2) * (3 - 4) / (5 + 6) = 3 * (-1) / 11 ≈ -0.2727
+        assert pytest.approx(interpreter.state['complex']) == -0.2727272727272727
+        # (((1 + 2) * 3) - 4) = ((3 * 3) - 4) = (9 - 4) = 5
+        assert interpreter.state['nested'] == 5
+
+    def test_operator_precedence(self, interpreter, parser, capture_output):
+        """Test proper handling of operator precedence."""
+        code = '''
+        objective "Test operator precedence"
+        task "Precedence":
+            step "Calculate":
+                mul_add = 2 + 3 * 4
+                div_add = 10 + 15 / 3
+                mixed = 2 * 3 + 4 * 5 / 2 - 1
+                print(mul_add)
+                print(div_add)
+                print(mixed)
+        run "Precedence"'''
+        
+        ast = parser.parse(code)
+        interpreter.execute(ast)
+        
+        # 2 + 3 * 4 = 2 + 12 = 14 (not 20)
+        assert interpreter.state['mul_add'] == 14
+        # 10 + 15 / 3 = 10 + 5 = 15 (not 8.33...)
+        assert interpreter.state['div_add'] == 15
+        # 2 * 3 + 4 * 5 / 2 - 1 = 6 + 20/2 - 1 = 6 + 10 - 1 = 15
+        assert interpreter.state['mixed'] == 15
+
+    def test_basic_parentheses(self, interpreter, parser, capture_output):
+        """Test basic parenthesized expression."""
+        code = '''
+        objective "Test basic parentheses"
+        task "ParenExpr":
+            step "Calculate":
+                result = 2 * (3 + 4)
+                print(result)
+        run "ParenExpr"'''
+        
+        ast = parser.parse(code)
+        interpreter.execute(ast)
+        
+        assert interpreter.state['result'] == 14
