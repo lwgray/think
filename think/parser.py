@@ -125,11 +125,6 @@ class ThinkParser:
         r'True|False'
         t.value = True if t.value == 'True' else False
         return t
-    
-    def t_NEWLINE(self, t: lex.LexToken) -> lex.LexToken:
-        r'\n+'
-        t.lexer.lineno += len(t.value)
-        return t
 
     def t_error(self, t: lex.LexToken):
         """Lexer error handler"""
