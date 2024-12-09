@@ -417,23 +417,24 @@ class ThinkParser:
         """
         expression : arithmetic_expr
                     | comparison_expr
+                    | LPAREN expression RPAREN
         """
-        p[0] = p[1]
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            p[0] = p[2]
 
     def p_primary_expr(self, p):
         """
         primary_expr : IDENTIFIER
                      | NUMBER
-                    | numeric_literal
                     | STRING
                     | BOOL
                     | FLOAT
-                    | MINUS FLOAT
                     | list
                     | function_call
                     | LPAREN expression RPAREN
                     | dict_literal
-                    | index_expression
         """
         if len(p) == 2:
             if isinstance(p[1], str) and hasattr(p[1], 'type'):
@@ -442,6 +443,8 @@ class ThinkParser:
                 p[0] = {'type': 'string_literal', 'value': p[1]}
             else:
                 p[0] = p[1]
+        elif len(p) == 3:
+            p[0] = -p[2]
         else:
             p[0] = p[2] 
 
@@ -479,8 +482,11 @@ class ThinkParser:
         """
         if len(p) == 2:
             p[0] = p[1]
-        else:
-            p[0] = {'type': 'operation', 'left': p[1], 'operator': p[2], 'right': p[3]}
+        elif len(p) == 4:
+            if p[1] == '(':
+                p[0] = p[2]
+            else:
+                p[0] = {'type': 'operation', 'left': p[1], 'operator': p[2], 'right': p[3]}
 
     def p_comparison_expr(self, p):
         """

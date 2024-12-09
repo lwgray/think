@@ -409,10 +409,15 @@ class ThinkInterpreter:
 
     def evaluate_operation(self, operation):
         """Evaluate a mathematical or logical operation"""
+        op = operation['operator']
+
+        if op == 'uminus':
+            operand = self.evaluate_expression(operation['operand'])
+            return -operand
+        
         left = self.evaluate_expression(operation['left'])
         right = self.evaluate_expression(operation['right'])
-        op = operation['operator']
-        
+
          # Handle string literals - extract actual string values
         if isinstance(left, dict) and left.get('type') == 'string_literal':
             left = left['value']
