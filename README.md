@@ -14,7 +14,7 @@ Think is an educational programming language designed to teach computational thi
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/think.git
+git clone https://github.com/lwgray/think.git
 cd think
 
 # Install the package
