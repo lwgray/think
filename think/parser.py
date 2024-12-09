@@ -416,23 +416,35 @@ class ThinkParser:
     def p_expression(self, p):
         """
         expression : arithmetic_expr
-                | comparison_expr
-                | primary_expr
+                    | comparison_expr
         """
         p[0] = p[1]
 
     def p_primary_expr(self, p):
         """
         primary_expr : IDENTIFIER
-                    | literal
-                    | array_access
+                     | NUMBER
+                    | numeric_literal
+                    | STRING
+                    | BOOL
+                    | FLOAT
+                    | MINUS FLOAT
+                    | list
                     | function_call
                     | LPAREN expression RPAREN
+                    | dict_literal
+                    | index_expression
         """
         if len(p) == 2:
-            p[0] = p[1]
+            if isinstance(p[1], str) and hasattr(p[1], 'type'):
+                p[0] = p[1]
+            elif p.slice[1].type == 'STRING':
+                p[0] = {'type': 'string_literal', 'value': p[1]}
+            else:
+                p[0] = p[1]
         else:
-            p[0] = p[2]
+            p[0] = p[2] 
+
 
     def p_literal(self, p):
         """
@@ -448,13 +460,8 @@ class ThinkParser:
         """
         number : NUMBER
                 | FLOAT
-                | MINUS NUMBER
-                | MINUS FLOAT
         """
-        if len(p) == 2:
-            p[0] = p[1]
-        else:
-            p[0] = -p[2]
+        p[0] = p[1]
 
     def p_array_access(self, p):
         """
@@ -465,17 +472,13 @@ class ThinkParser:
 
     def p_arithmetic_expr(self, p):
         """
-        arithmetic_expr : primary_expr
-                    | arithmetic_expr PLUS arithmetic_expr
-                    | arithmetic_expr MINUS arithmetic_expr
-                    | arithmetic_expr TIMES arithmetic_expr
-                    | arithmetic_expr DIVIDE arithmetic_expr
-                    | MINUS arithmetic_expr %prec UMINUS
+        arithmetic_expr : term
+                    | arithmetic_expr PLUS term
+                    | arithmetic_expr MINUS term
+
         """
         if len(p) == 2:
             p[0] = p[1]
-        elif len(p) == 3:
-            p[0] = {'type': 'operation', 'operator': 'uminus', 'operand': p[2]}
         else:
             p[0] = {'type': 'operation', 'left': p[1], 'operator': p[2], 'right': p[3]}
 
@@ -493,47 +496,24 @@ class ThinkParser:
     def p_term(self, p):
         """
         term : factor
+             | term TIMES factor
+             | term DIVIDE factor
         """
-        p[0] = p[1]
-
-    def p_factor_unary(self, p):
-        """
-        factor : MINUS factor %prec UMINUS
-        """
-        if isinstance(p[2], (int, float)):
-            p[0] = -p[2]
+        if len(p) == 2:
+            p[0] = p[1]
         else:
-            p[0] = {'type': 'operation',
-                    'operator': '*',
-                    'left': -1,
-                    'right': p[2]}
+            p[0] = {'type': 'operation', 'left': p[1], 'operator': p[2], 'right': p[3]}
+
 
     def p_factor(self, p):
         """
-        factor : IDENTIFIER
-            | NUMBER
-            | numeric_literal
-            | STRING
-            | BOOL
-            | FLOAT
-            | MINUS FLOAT
-            | list
-            | function_call
-            | LPAREN expression RPAREN
-            | dict_literal
-            | index_expression
+        factor : primary_expr
+               | MINUS factor %prec UMINUS
         """
         if len(p) == 2:
-            if isinstance(p[1], str) and hasattr(p[1], 'type'):
-                p[0] = p[1]
-            elif p.slice[1].type == 'STRING':
-                p[0] = {'type': 'string_literal', 'value': p[1]}
-            else:
-                p[0] = p[1]
-        elif len(p) == 3 and p[1] == '-':
-            p[0] = -p[2]
+            p[0] = p[1]
         else:
-            p[0] = p[2]  # For parenthesized expressions
+            p[0] = {'type': 'operation', 'operator': 'uminus', 'operand': p[2]}
 
     def p_numeric_literal(self, p):
         """
