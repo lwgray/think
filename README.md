@@ -118,12 +118,12 @@ run "Analysis"
 
 1. Load the ThinkPy extension:
    ```python
-   %load_ext thinkpy.jupyter_magic
+   %load_ext think.jupyter_magic
    ```
 
 2. Write ThinkPy code in cells:
    ```python
-   %%thinkpy --explain
+   %%think --explain
    
    objective "Your program objective"
    # ... rest of your code
