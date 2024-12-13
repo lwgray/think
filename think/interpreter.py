@@ -322,6 +322,7 @@ class ThinkInterpreter:
         elif stmt_type == 'decide':
             return self.execute_decide(statement)
 
+
     def evaluate_expression(self, expr):
         """Evaluate an expression and return its value"""
         # Handle direct values
@@ -352,36 +353,87 @@ class ThinkInterpreter:
                 container = self.evaluate_expression(expr['container'])
                 key = self.evaluate_expression(expr['key'])
                 
-                # Convert string literal to string if it's being used as a key
-                if isinstance(key, dict) and key.get('type') == 'string_literal':
-                    key = key['value']
-
-                if isinstance(container, (dict, list)):
+                # Handle list indexing
+                if isinstance(container, list):
                     try:
-                        if isinstance(container, list):
+                        # First validate that key can be used as an index
+                        if not isinstance(key, (int, float)) or isinstance(key, bool):
+                            raise ThinkRuntimeError(
+                                message=f"Invalid index/key: List indices must be integers, got {type(key).__name__}",
+                                task=self.current_task,
+                                step=self.current_step,
+                                variables={
+                                    "attempted_key": key,
+                                    "key_type": type(key).__name__
+                                }
+                            )
+                        
+                        # Convert float to int if it's a whole number
+                        if isinstance(key, float):
+                            if not key.is_integer():
+                                raise ThinkRuntimeError(
+                                    message=f"Invalid index/key: List indices must be whole numbers, got {key}",
+                                    task=self.current_task,
+                                    step=self.current_step,
+                                    variables={
+                                        "attempted_key": key
+                                    }
+                                )
                             key = int(key)
+                        
+                        # Check bounds before accessing
+                        if key >= len(container) or key < -len(container):
+                            raise ThinkRuntimeError(
+                                message=f"Invalid index/key: {key} is out of range for list of length {len(container)}",
+                                task=self.current_task,
+                                step=self.current_step,
+                                variables={
+                                    "attempted_key": key,
+                                    "list_length": len(container),
+                                    "valid_range": f"-{len(container)} to {len(container)-1}"
+                                }
+                            )
+                        
                         return container[key]
-                    except (KeyError, IndexError, ValueError) as e:
+                        
+                    except (TypeError, ValueError) as e:
                         raise ThinkRuntimeError(
-                            message=f"Invalid index/key: {key} for container {container}",
+                            message=f"Invalid index/key: {key}",
                             task=self.current_task,
                             step=self.current_step,
                             variables={
-                                "container_type": type(container).__name__,
-                                "container_value": container,
                                 "attempted_key": key,
-                                "valid_keys": list(container.keys()) if isinstance(container, dict) else f"0-{len(container)-1}"
+                                "error": str(e)
                             }
                         )
+                
+                # Handle dictionary indexing
+                elif isinstance(container, dict):
+                    try:
+                        if isinstance(key, dict) and key.get('type') == 'string_literal':
+                            key = key['value']
+                        return container[key]
+                    except KeyError:
+                        raise ThinkRuntimeError(
+                            message=f"Invalid index/key: {key} not found in dictionary",
+                            task=self.current_task,
+                            step=self.current_step,
+                            variables={
+                                "attempted_key": key,
+                                "available_keys": list(container.keys())
+                            }
+                        )
+                
+                # Handle invalid container types
                 else:
                     raise ThinkRuntimeError(
-                        message=f"Cannot index into type: {type(container)}",
+                        message=f"Cannot index into type: {type(container).__name__}",
                         task=self.current_task,
                         step=self.current_step,
                         variables={
                             "attempted_type": type(container).__name__,
-                            "indexable_types": ["list", "dict", "string"],
-                            "value_attempted": str(container)
+                            "value": str(container),
+                            "indexable_types": ["list", "dict"]
                         }
                     )
             
@@ -406,6 +458,8 @@ class ThinkInterpreter:
                     })
                 
         return expr
+
+
 
     def evaluate_operation(self, operation):
         """Evaluate a mathematical or logical operation"""

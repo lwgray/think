@@ -2,6 +2,7 @@ import pytest
 import io
 import sys
 from think.interpreter import ThinkInterpreter
+from think.errors import ThinkRuntimeError
 
 @pytest.fixture
 def capture_output():
@@ -145,6 +146,137 @@ class TestDataStructures:
         interpreter.execute(ast)
         assert interpreter.state['items'][0] == 0
         assert interpreter.state['items'][2] == 2
+
+    def test_list_indexing(self, interpreter, parser, capture_output):
+        """Test comprehensive list indexing operations."""
+        code = '''objective "Test list indexing"
+        task "ListIndexing":
+            step "Setup":
+                numbers = [10, 20, 30, 40, 50]
+                
+                first = numbers[0]
+                last = numbers[4]
+                
+                last_item = numbers[-1]
+                second_to_last = numbers[-2]
+                
+                idx = 2
+                middle = numbers[idx]
+                
+                expr_idx = numbers[1 + 1]
+                
+                matrix = [[1, 2, 3], [4, 5, 6]]
+                nested_val = matrix[1][2]
+                
+                calc_idx = 10 / 2 - 1
+                computed = numbers[calc_idx]
+                
+        run "ListIndexing"'''
+    
+        ast = parser.parse(code)
+        interpreter.execute(ast)
+        
+        # Verify basic positive indexing
+        assert interpreter.state['first'] == 10, "First element incorrect"
+        assert interpreter.state['last'] == 50, "Last element incorrect"
+        
+        # Verify negative indexing
+        assert interpreter.state['last_item'] == 50, "Negative indexing failed"
+        assert interpreter.state['second_to_last'] == 40, "Negative indexing failed"
+        
+        # Verify variable as index
+        assert interpreter.state['middle'] == 30, "Variable index failed"
+        
+        # Verify expression as index
+        assert interpreter.state['expr_idx'] == 30, "Expression index failed"
+        
+        # Verify nested indexing
+        assert interpreter.state['nested_val'] == 6, "Nested indexing failed"
+        
+        # Verify computed index
+        assert interpreter.state['computed'] == 50, "Computed index failed"
+
+    def test_list_indexing_errors(self, interpreter, parser, capture_output):
+        """Test error cases for list indexing."""
+        # Test index out of bounds (positive)
+        code = '''objective "Test list index errors"
+        task "ListErrors":
+            step "OutOfBounds":
+                numbers = [1, 2, 3]
+                invalid = numbers[5]
+        run "ListErrors"'''
+        
+        with pytest.raises(ThinkRuntimeError) as exc_info:
+            ast = parser.parse(code)
+            interpreter.execute(ast)
+        assert "Invalid index/key" in str(exc_info.value)
+        
+        # Test index out of bounds (negative)
+        code = '''objective "Test negative index errors"
+        task "ListErrors":
+            step "NegativeOutOfBounds":
+                numbers = [1, 2, 3]
+                invalid = numbers[-4]
+        run "ListErrors"'''
+        
+        with pytest.raises(ThinkRuntimeError) as exc_info:
+            ast = parser.parse(code)
+            interpreter.execute(ast)
+        assert "Invalid index/key" in str(exc_info.value)
+        
+        # Test non-integer index
+        code = '''objective "Test non-integer index"
+        task "ListErrors":
+            step "NonInteger":
+                numbers = [1, 2, 3]
+                invalid = numbers[1.5]
+        run "ListErrors"'''
+        
+        with pytest.raises(ThinkRuntimeError) as exc_info:
+            ast = parser.parse(code)
+            interpreter.execute(ast)
+        assert "Invalid index/key" in str(exc_info.value)
+        
+        # Test invalid type for index
+        code = '''objective "Test invalid index type"
+        task "ListErrors":
+            step "InvalidType":
+                numbers = [1, 2, 3]
+                invalid = numbers["one"]
+        run "ListErrors"'''
+        
+        with pytest.raises(ThinkRuntimeError) as exc_info:
+            ast = parser.parse(code)
+            interpreter.execute(ast)
+        assert "Invalid index/key" in str(exc_info.value)
+
+    def test_nested_list_indexing_errors(self, interpreter, parser, capture_output):
+        """Test error cases for nested list indexing."""
+        # Test accessing index of non-list
+        code = '''objective "Test invalid nested indexing"
+        task "NestedErrors":
+            step "NonList":
+                numbers = [1, [2, 3], 4]
+                invalid = numbers[0][1]
+        run "NestedErrors"'''
+        
+        with pytest.raises(ThinkRuntimeError) as exc_info:
+            ast = parser.parse(code)
+            interpreter.execute(ast)
+        assert "Cannot index into type" in str(exc_info.value)
+        
+        # Test out of bounds on nested list
+        code = '''objective "Test nested out of bounds"
+        task "NestedErrors":
+            step "OutOfBounds":
+                matrix = [[1, 2], [3, 4]]
+                invalid = matrix[1][5]
+        run "NestedErrors"'''
+        
+        with pytest.raises(ThinkRuntimeError) as exc_info:
+            ast = parser.parse(code)
+            interpreter.execute(ast)
+        assert "Invalid index" in str(exc_info.value)
         
 
 class TestFunctions:
