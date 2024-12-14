@@ -406,6 +406,7 @@ class ThinkParser:
 
     # Add operator precedence rules
     precedence = (
+        ('left', 'LBRACKET', 'RBRACKET'),
         ('right', 'UMINUS'),
         ('left', 'TIMES', 'DIVIDE'),
         ('left', 'PLUS', 'MINUS'),
@@ -435,6 +436,7 @@ class ThinkParser:
                     | function_call
                     | LPAREN expression RPAREN
                     | dict_literal
+                    | index_expression
         """
         if len(p) == 2:
             if isinstance(p[1], str) and hasattr(p[1], 'type'):
@@ -561,7 +563,8 @@ class ThinkParser:
 
     def p_index_expression(self, p):
         """
-        index_expression : expression LBRACKET expression RBRACKET
+        index_expression : primary_expr LBRACKET expression RBRACKET
+                         | IDENTIFIER LBRACKET expression RBRACKET
         """
         p[0] = {
             'type': 'index', 

@@ -350,6 +350,7 @@ class ThinkInterpreter:
                 return self.evaluate_dict(expr.get('entries', []))
             
             elif expr_type == 'index':
+                # CHANGE: Now fully evaluate both container and key before indexing
                 container = self.evaluate_expression(expr['container'])
                 key = self.evaluate_expression(expr['key'])
                 
@@ -394,6 +395,7 @@ class ThinkInterpreter:
                                 }
                             )
                         
+                        # Return the actual value from the list
                         return container[key]
                         
                     except (TypeError, ValueError) as e:
@@ -438,8 +440,18 @@ class ThinkInterpreter:
                     )
             
             elif expr_type == 'operation':
-                return self.evaluate_operation(expr)
-                
+                # CHANGE: First evaluate both operands fully before any operation
+                if 'operand' in expr:  # Unary operation
+                    operand = self.evaluate_expression(expr['operand'])
+                    if expr['operator'] == 'uminus':
+                        return -operand
+                else:  # Binary operation
+                    # CHANGE: Evaluate both sides completely before operation
+                    left = self.evaluate_expression(expr['left'])
+                    right = self.evaluate_expression(expr['right'])
+                    # CHANGE: Pass operator and evaluated values to evaluate_operation
+                    return self.evaluate_operation(expr['operator'], left, right)
+                    
             elif expr_type == 'function_call':
                 return self.execute_function_call(expr)
                     
@@ -459,27 +471,23 @@ class ThinkInterpreter:
                 
         return expr
 
+    def evaluate_operation(self, operation, left=None, right=None):
+        """Evaluate a mathematical or logical operation. Can be called with:
+        1. (operation_dict) - for backwards compatibility
+        2. (operator, left_value, right_value) - for pre-evaluated values
+        """
+        # CHANGE: Handle both calling patterns
+        if isinstance(operation, dict):
+            # Old style with operation dict - evaluate operands
+            op = operation['operator']
+            left = self.evaluate_expression(operation['left'])
+            right = self.evaluate_expression(operation['right'])
+        else:
+            # New style - use pre-evaluated values
+            op = operation  # operation is the operator in this case
 
-
-    def evaluate_operation(self, operation):
-        """Evaluate a mathematical or logical operation"""
-        op = operation['operator']
-
-        if op == 'uminus':
-            operand = self.evaluate_expression(operation['operand'])
-            return -operand
-        
-        left = self.evaluate_expression(operation['left'])
-        right = self.evaluate_expression(operation['right'])
-
-         # Handle string literals - extract actual string values
-        if isinstance(left, dict) and left.get('type') == 'string_literal':
-            left = left['value']
-        if isinstance(right, dict) and right.get('type') == 'string_literal':
-            right = right['value']
-
-        if op == '+': 
-            # Handle string concatenation
+        # Perform the operation with evaluated values
+        if op == '+':
             if isinstance(left, str) or isinstance(right, str):
                 return str(left) + str(right)
             elif isinstance(left, list):
@@ -496,25 +504,12 @@ class ThinkInterpreter:
                             "left_value": left,
                             "right_value": right
                         })
-            elif isinstance(right, list):
-                if isinstance(left, list):
-                    return left + right
-                else:
-                    raise ThinkRuntimeError(
-                        message=f"Cannot concatenate list with non-list",
-                        task=self.current_task,
-                        step=self.current_step,
-                        variables={
-                            "operation": "concatenation",
-                            "left_type": type(left).__name__,
-                            "right_type": type(right).__name__,
-                            "left_value": left,
-                            "expected_type": "list"
-                        })
             return left + right
-        elif op == '-': return float(left - right)
-        elif op == '*': return float(left * right)
-        elif op == '/': 
+        elif op == '-':
+            return float(left - right)
+        elif op == '*':
+            return float(left * right)
+        elif op == '/':
             if right == 0:
                 raise ThinkRuntimeError(
                     message="Division by zero",
@@ -523,8 +518,7 @@ class ThinkInterpreter:
                     variables={
                         "operation": "division",
                         "left_operand": left,
-                        "right_operand": right,
-                        "current_variables": self.state
+                        "right_operand": right
                     })
             return float(left) / float(right)
         elif op == '==': return left == right
@@ -542,8 +536,9 @@ class ThinkInterpreter:
                     "operation": "unknown",
                     "left_operand": left,
                     "right_operand": right,
-                    "supported_operators": ['+', '-', '*', '/', '==', '!=', '<', '>', '<=', '>='],
+                    "supported_operators": ['+', '-', '*', '/', '==', '!=', '<', '>', '<=', '>=']
                 })
+   
 
     def execute_function_call(self, func_call):
         """Execute a function call"""

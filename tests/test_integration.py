@@ -427,3 +427,115 @@ class TestExpressionEvaluation:
         interpreter.execute(ast)
         
         assert interpreter.state['result'] == 14
+
+    def test_basic_index_addition(self, interpreter, parser,capture_output):
+        """Test that operations can be performed on indexed variables"""
+        code = '''
+        objective "Test basic index operations"
+        task "operation":
+            step "add":
+                mylist = [1,2,3]
+                result = mylist[0] + mylist[1]
+        run "operation"'''
+        
+        ast = parser.parse(code)
+        interpreter.execute(ast)
+
+        assert interpreter.state['result'] == 3
+
+    def test_indexed_arithmetic_operations(self, interpreter, parser, capture_output):
+        """Test arithmetic operations with indexed values."""
+        code = '''
+        objective "Test indexed arithmetic"
+        task "IndexedMath":
+            step "Calculate":
+                list1 = [10, 20, 30]
+                list2 = [2, 4, 6]
+                list3 = [1, 2, 3]
+                
+                add_result = list1[0] + list2[1]
+                
+                mixed_result = list1[1] * list2[0] + list3[2]
+                
+                complex_result = (list1[2] + list2[1]) * list3[0]
+                
+                i = 1
+                var_index_result = list1[i] + list2[i]
+                
+                nested_calc = (list1[0] * list2[1]) + (list3[2] / list2[0])
+                
+        run "IndexedMath"'''
+        
+        ast = parser.parse(code)
+        interpreter.execute(ast)
+        
+        # 10 + 4 = 14
+        assert interpreter.state['add_result'] == 14
+        
+        # 20 * 2 + 3 = 43
+        assert interpreter.state['mixed_result'] == 43
+        
+        # (30 + 4) * 1 = 34
+        assert interpreter.state['complex_result'] == 34
+        
+        # list1[1] + list2[1] = 20 + 4 = 24
+        assert interpreter.state['var_index_result'] == 24
+        
+        # (10 * 4) + (3 / 2) = 40 + 1.5 = 41.5
+        assert pytest.approx(interpreter.state['nested_calc']) == 41.5
+
+    def test_nested_indexed_operations(self, interpreter, parser, capture_output):
+        """Test operations with nested indexed values and complex expressions."""
+        code = '''
+        objective "Test nested indexed operations"
+        task "NestedIndex":
+            step "Calculate":
+                matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+                multipliers = [2, 3, 4]
+                
+                nested_result = matrix[1][2] * multipliers[0]
+                
+                i = 1
+                j = 2
+                complex_nested = matrix[i][j] + matrix[0][j] * multipliers[i]
+                
+        run "NestedIndex"'''
+        
+        ast = parser.parse(code)
+        interpreter.execute(ast)
+        
+        # matrix[1][2] * multipliers[0] = 6 * 2 = 12
+        assert interpreter.state['nested_result'] == 12
+        
+        # matrix[1][2] + matrix[0][2] * multipliers[1] = 6 + 3 * 3 = 15
+        assert interpreter.state['complex_nested'] == 15
+
+    def test_indexed_operation_errors(self, interpreter, parser, capture_output):
+        """Test error handling in indexed operations."""
+        # Test invalid index in operation
+        code = '''
+        objective "Test invalid index in operation"
+        task "InvalidIndex":
+            step "Calculate":
+                numbers = [1, 2, 3]
+                result = numbers[3] + numbers[1]
+        run "InvalidIndex"'''
+        
+        with pytest.raises(ThinkRuntimeError) as exc_info:
+            ast = parser.parse(code)
+            interpreter.execute(ast)
+        assert "Invalid index/key" in str(exc_info.value)
+        
+        # Test operation with invalid nested index
+        code = '''
+        objective "Test invalid nested index"
+        task "InvalidNested":
+            step "Calculate":
+                matrix = [[1, 2], [3, 4]]
+                result = matrix[1][5] * 2
+        run "InvalidNested"'''
+        
+        with pytest.raises(ThinkRuntimeError) as exc_info:
+            ast = parser.parse(code)
+            interpreter.execute(ast)
+        assert "Invalid index/key" in str(exc_info.value)
