@@ -4,29 +4,8 @@ import sys
 from think.interpreter import ThinkInterpreter
 from think.errors import ThinkRuntimeError
 
-@pytest.fixture
-def capture_output():
-    """Fixture to capture stdout and restore it after test."""
-    import sys
-    from io import StringIO
-    
-    # Store the original stdout
-    old_stdout = sys.stdout
-    
-    # Create our string buffer
-    string_buffer = StringIO()
-    
-    try:
-        # Replace stdout
-        sys.stdout = string_buffer
-        yield string_buffer
-    finally:
-        # Restore stdout
-        sys.stdout = old_stdout
-        string_buffer.close()
-
 class TestBasicIntegration:
-    def test_arithmetic_operations(self, interpreter, parser, capture_output):
+    def test_arithmetic_operations(self, interpreter, parser):
         code = '''
         objective "Test"
         task "Math":
@@ -43,10 +22,7 @@ class TestBasicIntegration:
         
         ast = parser.parse(code)
         interpreter.execute(ast)
-        output = capture_output.getvalue()
 
-        output_lines = output.strip().split('\n')
-        print(output_lines)
         int_result = interpreter.state['int_result']
         float_result = interpreter.state['float_result']
         sci_result = interpreter.state['sci_result']
@@ -56,7 +32,7 @@ class TestBasicIntegration:
         assert pytest.approx(float(sci_result)) == 15.0
         assert pytest.approx(float(mixed_result)) == -131.94678
 
-    def test_scientific_notation(self, interpreter, parser, capture_output):
+    def test_scientific_notation(self, interpreter, parser):
         code = '''objective "Test"
             task "Scientific":
             step "Complex Math":
@@ -73,7 +49,7 @@ class TestBasicIntegration:
         assert any(x == result for x in [3e-05, 0.00003])
 
 class TestControlFlow:
-    def test_conditional_execution(self, capture_output, interpreter, parser):        
+    def test_conditional_execution(self, interpreter, parser):        
         code = '''objective "Test conditional execution"
             task "Logic":
                 step "Test":
@@ -93,10 +69,9 @@ class TestControlFlow:
         ast = parser.parse(code)
         interpreter.execute(ast)
         
-        output = capture_output.getvalue()
         assert interpreter.state['result'] == "positive"
 
-    def test_loop_execution(self, interpreter, parser, capture_output):
+    def test_loop_execution(self, interpreter, parser):
         code = '''objective "Test loop execution"
         task "Loop":
             step "Iterate":
@@ -112,7 +87,7 @@ class TestControlFlow:
         assert interpreter.state['result'] == 3
 
 class TestDataStructures:
-    def test_nested_structures(self, interpreter, parser, capture_output):
+    def test_nested_structures(self, interpreter, parser):
         code = '''objective "Test nested structures"
         task "Data":
             step "Test":
@@ -130,7 +105,7 @@ class TestDataStructures:
         assert interpreter.state['users'][0]['name'] == "Alice"
         assert interpreter.state['users'][1]['scores'][1] == 92
 
-    def test_list_operations(self, interpreter, parser, capture_output):
+    def test_list_operations(self, interpreter, parser):
         code = '''objective "Test list operations"
         task "Lists":
             step "Process":
@@ -147,7 +122,7 @@ class TestDataStructures:
         assert interpreter.state['items'][0] == 0
         assert interpreter.state['items'][2] == 2
 
-    def test_list_indexing(self, interpreter, parser, capture_output):
+    def test_list_indexing(self, interpreter, parser):
         """Test comprehensive list indexing operations."""
         code = '''objective "Test list indexing"
         task "ListIndexing":
@@ -196,7 +171,7 @@ class TestDataStructures:
         # Verify computed index
         assert interpreter.state['computed'] == 50, "Computed index failed"
 
-    def test_list_indexing_errors(self, interpreter, parser, capture_output):
+    def test_list_indexing_errors(self, interpreter, parser):
         """Test error cases for list indexing."""
         # Test index out of bounds (positive)
         code = '''objective "Test list index errors"
@@ -250,7 +225,7 @@ class TestDataStructures:
             interpreter.execute(ast)
         assert "Invalid index/key" in str(exc_info.value)
 
-    def test_nested_list_indexing_errors(self, interpreter, parser, capture_output):
+    def test_nested_list_indexing_errors(self, interpreter, parser):
         """Test error cases for nested list indexing."""
         # Test accessing index of non-list
         code = '''objective "Test invalid nested indexing"
@@ -280,7 +255,7 @@ class TestDataStructures:
         
 
 class TestFunctions:
-    def test_subtask_execution(self, interpreter, parser, capture_output):
+    def test_subtask_execution(self, interpreter, parser):
         code = '''objective "Test subtask execution"
         task "Functions":
             subtask "calculate":
@@ -300,7 +275,7 @@ class TestFunctions:
         interpreter.execute(ast)
         assert 13 == interpreter.state['result']
 
-    def test_data_processing(self, interpreter, parser, capture_output):
+    def test_data_processing(self, interpreter, parser):
         code = '''objective "Test data processing"
         task "Process":
             step "Filter":
@@ -320,7 +295,7 @@ class TestFunctions:
         assert 5 == interpreter.state['result'][1]
 
 class TestExpressionEvaluation:
-    def test_nested_unary_operations(self, interpreter, parser, capture_output):
+    def test_nested_unary_operations(self, interpreter, parser):
         """Test handling of nested unary minus operations."""
         code = '''
         objective "Test nested unary operations"
@@ -341,7 +316,7 @@ class TestExpressionEvaluation:
         assert interpreter.state['triple_neg'] == -17
         assert pytest.approx(interpreter.state['mixed']) == 3.14
 
-    def test_complex_nested_expressions(self, interpreter, parser, capture_output):
+    def test_complex_nested_expressions(self, interpreter, parser):
         """Test evaluation of complex nested expressions."""
         code = '''
         objective "Test complex expressions"
@@ -389,7 +364,7 @@ class TestExpressionEvaluation:
         # (((1 + 2) * 3) - 4) = ((3 * 3) - 4) = (9 - 4) = 5
         assert interpreter.state['nested'] == 5
 
-    def test_operator_precedence(self, interpreter, parser, capture_output):
+    def test_operator_precedence(self, interpreter, parser):
         """Test proper handling of operator precedence."""
         code = '''
         objective "Test operator precedence"
@@ -413,7 +388,7 @@ class TestExpressionEvaluation:
         # 2 * 3 + 4 * 5 / 2 - 1 = 6 + 20/2 - 1 = 6 + 10 - 1 = 15
         assert interpreter.state['mixed'] == 15
 
-    def test_basic_parentheses(self, interpreter, parser, capture_output):
+    def test_basic_parentheses(self, interpreter, parser):
         """Test basic parenthesized expression."""
         code = '''
         objective "Test basic parentheses"
@@ -428,7 +403,7 @@ class TestExpressionEvaluation:
         
         assert interpreter.state['result'] == 14
 
-    def test_basic_index_addition(self, interpreter, parser,capture_output):
+    def test_basic_index_addition(self, interpreter, parser):
         """Test that operations can be performed on indexed variables"""
         code = '''
         objective "Test basic index operations"
@@ -443,7 +418,7 @@ class TestExpressionEvaluation:
 
         assert interpreter.state['result'] == 3
 
-    def test_indexed_arithmetic_operations(self, interpreter, parser, capture_output):
+    def test_indexed_arithmetic_operations(self, interpreter, parser):
         """Test arithmetic operations with indexed values."""
         code = '''
         objective "Test indexed arithmetic"
@@ -484,7 +459,7 @@ class TestExpressionEvaluation:
         # (10 * 4) + (3 / 2) = 40 + 1.5 = 41.5
         assert pytest.approx(interpreter.state['nested_calc']) == 41.5
 
-    def test_nested_indexed_operations(self, interpreter, parser, capture_output):
+    def test_nested_indexed_operations(self, interpreter, parser):
         """Test operations with nested indexed values and complex expressions."""
         code = '''
         objective "Test nested indexed operations"
@@ -510,7 +485,7 @@ class TestExpressionEvaluation:
         # matrix[1][2] + matrix[0][2] * multipliers[1] = 6 + 3 * 3 = 15
         assert interpreter.state['complex_nested'] == 15
 
-    def test_indexed_operation_errors(self, interpreter, parser, capture_output):
+    def test_indexed_operation_errors(self, interpreter, parser):
         """Test error handling in indexed operations."""
         # Test invalid index in operation
         code = '''
